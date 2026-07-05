@@ -1,0 +1,6 @@
+# Send Cargo/Tauri build output to the repo-root build/ directory instead of
+# frontend/src-tauri/target, so every build artifact lives under one build/ dir.
+# (The Makefile also exports CARGO_TARGET_DIR, which takes precedence when the
+# build is driven via `make`; this covers a direct `npm run tauri` invocation.)
+[build]
+target-dir = "../../build/tauri"

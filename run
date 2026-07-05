@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Dev launcher: FastAPI backend (:8765) + Vite frontend (:5173).
+set -e
+cd "$(dirname "$0")"
+
+cleanup() { kill $(jobs -p) 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
+echo "starting backend on :8765 …"
+uv run uvicorn backend.api.main:app --port 8765 &
+
+echo "starting frontend on :5173 …"
+(cd frontend && npm run dev) &
+
+echo "open http://localhost:5173"
+wait

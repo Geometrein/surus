@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/.vite/
+
+# Desktop build artifacts — all under one build/ dir (Cargo/Tauri target in
+# build/tauri, PyInstaller freeze in build/dist + build/pyinstaller).
+/build/
+/dist/
+*.spec
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local env / secrets (the app uses the macOS keychain; never commit keys)
+.env
+*.local
+.claude/
