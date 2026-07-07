@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from backend.store.db import get_session
+from backend.store.db import get_session, session as new_session
 from backend.store.models import ConnectionRow, Setting
 
 router = APIRouter(prefix="/queries", tags=["queries"])
@@ -147,6 +147,20 @@ def _list_queries(ws: Path) -> list[dict]:
         for p in sorted(folder.rglob("*.sql")):
             rows.append(_query_row(p, ws))
     return rows
+
+
+def load_saved_queries(connection_id: str | None = None) -> list[dict]:
+    """Saved ``.sql`` queries in the open workspace (opens its own session for the
+    agent's worker thread). Filtered to ``connection_id`` when given; ``[]`` if no
+    workspace is open."""
+    with new_session() as s:
+        ws = _workspace(s)
+        if ws is None:
+            return []
+        rows = _list_queries(ws)
+    if connection_id is None:
+        return rows
+    return [r for r in rows if r["connection_id"] in (connection_id, None)]
 
 
 # ---------------------------------------------------------------------------

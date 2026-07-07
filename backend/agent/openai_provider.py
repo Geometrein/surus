@@ -11,6 +11,7 @@ caches prompts automatically, so no explicit cache markers are needed).
 from __future__ import annotations
 
 import json
+import threading
 from typing import TYPE_CHECKING, Any, Iterator
 
 import openai
@@ -23,6 +24,7 @@ from backend.config import DEFAULT_AGENT_MAX_STEPS, DEFAULT_AGENT_MAX_TOKENS
 from backend.db.dialects import get_dialect
 
 if TYPE_CHECKING:
+    from backend.agent.tools import SavedQueriesLoader
     from backend.db.dialects.base import Dialect
     from backend.db.extensions import ExtensionPlugin
 
@@ -55,6 +57,7 @@ class OpenAIProvider:
         mode: str = "sql",
         max_steps: int = DEFAULT_AGENT_MAX_STEPS,
         max_tokens: int = DEFAULT_AGENT_MAX_TOKENS,
+        saved_queries_loader: "SavedQueriesLoader | None" = None,
     ):
         self.client = openai.OpenAI(api_key=api_key)
         self.model = model
@@ -66,10 +69,21 @@ class OpenAIProvider:
         self.mode = mode
         self.max_steps = max_steps
         self.max_tokens = max_tokens
+        self.saved_queries_loader = saved_queries_loader
         # History holds OpenAI chat messages (user/assistant/tool), without the
         # system message — that is (re)built lazily and prepended per request.
         self.messages: list[dict] = []
         self._system_text: str | None = None
+        # Set by stop() to interrupt an in-flight tool-use loop.
+        self._cancel = threading.Event()
+
+    def stop(self) -> None:
+        """Request the current send() loop to halt at the next checkpoint."""
+        self._cancel.set()
+
+    def clear_stop(self) -> None:
+        """Reset the cancel flag; call before starting a new send()."""
+        self._cancel.clear()
 
     def reset(self) -> None:
         self.messages = []
@@ -146,6 +160,9 @@ class OpenAIProvider:
 
     def _run_loop(self) -> Iterator[AgentEvent]:
         for _ in range(self.max_steps):
+            if self._cancel.is_set():
+                yield AgentEvent("done")
+                return
             response = self.client.chat.completions.create(
                 model=self.model,
                 max_completion_tokens=self.max_tokens,
@@ -173,6 +190,10 @@ class OpenAIProvider:
                 return
 
             for tc in tool_calls:
+                # Stop before running further tools; unanswered tool_calls are
+                # backfilled by _repair_history on the next send.
+                if self._cancel.is_set():
+                    break
                 try:
                     tool_input = json.loads(tc.function.arguments or "{}")
                 except json.JSONDecodeError:
@@ -181,6 +202,7 @@ class OpenAIProvider:
                 result_text, is_error = execute_tool(
                     self.dialect, self.pool, tc.function.name, tool_input,
                     statement_timeout_ms=self.statement_timeout_ms,
+                    saved_queries_loader=self.saved_queries_loader,
                 )
                 yield AgentEvent("tool_result", tool_name=tc.function.name, ok=not is_error)
                 self.messages.append({
@@ -188,6 +210,9 @@ class OpenAIProvider:
                     "tool_call_id": tc.id,
                     "content": result_text,
                 })
+            if self._cancel.is_set():
+                yield AgentEvent("done")
+                return
 
         yield AgentEvent("error", text="Stopped: too many tool iterations.")
         yield AgentEvent("done")

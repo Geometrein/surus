@@ -48,7 +48,8 @@ def _provider_with(queue, monkeypatch, tool_result=("PLAN", False)):
     import backend.agent.openai_provider as op
     monkeypatch.setattr(
         op, "execute_tool",
-        lambda dialect, pool, name, inp, statement_timeout_ms=None: tool_result,
+        lambda dialect, pool, name, inp, statement_timeout_ms=None,
+        saved_queries_loader=None: tool_result,
     )
     return p
 

@@ -8,6 +8,7 @@ in SQLite for display).
 from __future__ import annotations
 
 import json
+import queue
 import threading
 
 import keyring
@@ -18,6 +19,7 @@ from sqlmodel import Session, select
 
 from backend.agent.provider import build_provider, provider_for_model
 from backend.api import deps
+from backend.api.routes.queries import load_saved_queries
 from backend.api.routes.settings import (
     get_agent_max_steps,
     get_agent_max_tokens,
@@ -182,6 +184,7 @@ def _get_provider(session: ChatSession, s: Session):
         if not api_key:
             raise HTTPException(400, f"No {provider_name} API key set (Settings).")
         db = deps.get_database(session.connection_id)  # raises 409 if not connected
+        connection_id = session.connection_id
         provider = build_provider(
             provider_name, api_key, session.model, db.ro, plugins=db.plugins, dialect=db.dialect,
             custom_instructions=get_custom_instructions(s),
@@ -189,6 +192,7 @@ def _get_provider(session: ChatSession, s: Session):
             mode=session.mode,
             max_steps=get_agent_max_steps(s),
             max_tokens=get_agent_max_tokens(s),
+            saved_queries_loader=lambda: load_saved_queries(connection_id),
         )
         # Rehydrate prior turns so reopening an old chat (or a backend restart)
         # doesn't start the agent with an empty conversation.
@@ -203,16 +207,14 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
     if session is None:
         raise HTTPException(404, "Chat session not found")
 
-    # Serialize sends per session: the provider's message history is mutated in
-    # place by the tool-use loop, so a concurrent send would corrupt it. Held for
-    # the whole stream and released in the generator's finally (which also runs
-    # on client disconnect). Acquired before any provider/DB work so an early
-    # error path releases it too.
+    # Serialize sends per session: the provider's history is mutated in place, so
+    # a concurrent send would corrupt it. Held across all provider/DB work below.
     lock = _session_lock(session_id)
     if not lock.acquire(blocking=False):
         raise HTTPException(409, "This chat is already generating a response.")
     try:
         provider = _get_provider(session, s)
+        provider.clear_stop()  # a prior stop() must not carry into this send
         # Persist the user message.
         s.add(ChatMessage(session_id=session_id, role="user", content=body.content))
         s.commit()
@@ -220,7 +222,12 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
         lock.release()
         raise
 
-    def event_stream():
+    # Run the agent in a background thread that owns the lock and drains into a
+    # queue, so a client disconnect can't strand the lock (worker still releases
+    # it in finally, at completion or the next cancel checkpoint).
+    events: "queue.Queue[dict | None]" = queue.Queue()
+
+    def worker():
         text_parts: list[str] = []
         steps: list[dict] = []
         try:
@@ -236,12 +243,10 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
                     text_parts.append(ev.text)
                 elif ev.kind in ("tool_call", "tool_result"):
                     steps.append(data)
-                yield f"data: {json.dumps(data)}\n\n"
+                events.put(data)
         except Exception as exc:  # noqa: BLE001
-            yield f"data: {json.dumps({'kind': 'error', 'text': str(exc)})}\n\n"
+            events.put({"kind": "error", "text": str(exc)})
         finally:
-            # Persist the assistant turn (standalone session — generator runs in a
-            # threadpool outside the request-scoped session).
             with new_session() as ws:
                 ws.add(ChatMessage(
                     session_id=session_id,
@@ -251,6 +256,26 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
                 ))
                 ws.commit()
             lock.release()
-            yield "data: {\"kind\": \"end\"}\n\n"
+            events.put(None)  # sentinel: worker done
+
+    threading.Thread(target=worker, name=f"chat-{session_id}", daemon=True).start()
+
+    def event_stream():
+        while True:
+            data = events.get()
+            if data is None:
+                yield "data: {\"kind\": \"end\"}\n\n"
+                return
+            yield f"data: {json.dumps(data)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/sessions/{session_id}/stop")
+def stop_message(session_id: str) -> dict:
+    """Signal the provider's cancel flag so the worker halts at its next
+    checkpoint and releases the lock. No-op if nothing is running."""
+    provider = _providers.get(session_id)
+    if provider is not None:
+        provider.stop()
+    return {"ok": True}

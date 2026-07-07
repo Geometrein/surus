@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterator, Literal, Protocol
 
 if TYPE_CHECKING:
+    from backend.agent.tools import SavedQueriesLoader
     from backend.db.dialects.base import Dialect
     from backend.db.extensions import ExtensionPlugin
 
@@ -69,6 +70,14 @@ class AgentProvider(Protocol):
         """Send a user message; yield events as the agent works."""
         ...
 
+    def stop(self) -> None:
+        """Request the in-flight send() loop to halt at the next checkpoint."""
+        ...
+
+    def clear_stop(self) -> None:
+        """Reset the cancel flag before starting a new send()."""
+        ...
+
     def reset(self) -> None:
         """Clear conversation history (e.g. on connection change)."""
         ...
@@ -94,6 +103,7 @@ def build_provider(
     mode: str = "sql",
     max_steps: int | None = None,
     max_tokens: int | None = None,
+    saved_queries_loader: "SavedQueriesLoader | None" = None,
 ) -> AgentProvider:
     if provider == "anthropic":
         from backend.agent.anthropic_provider import AnthropicProvider
@@ -119,5 +129,6 @@ def build_provider(
         custom_instructions=custom_instructions,
         statement_timeout_ms=statement_timeout_ms,
         mode=mode,
+        saved_queries_loader=saved_queries_loader,
         **limits,
     )

@@ -96,8 +96,19 @@ MODE_PROMPTS: dict[str, str] = {
 FIXED_SYSTEM_PROMPT = SQL_PROMPT
 
 
+# Appended to every mode: the agent can draw charts regardless of what its
+# primary textual/SQL output is.
+VISUALS_NOTE = """# Visualizing data
+When a trend, comparison, distribution, or time series would be clearer as a
+picture than as a table, call the render_chart tool: give it a SELECT plus the
+column-to-axis mapping and the UI draws the chart inline. Use it in addition to
+(not instead of) your primary answer, and prefer an aggregated, ordered query
+(e.g. one row per period). Don't chart a single number or a handful of unrelated
+rows — reach for it when the shape of the data is the point."""
+
+
 def build_system_prompt(custom_instructions: str = "", mode: str = "sql") -> str:
-    base = MODE_PROMPTS.get(mode, SQL_PROMPT)
+    base = f"{MODE_PROMPTS.get(mode, SQL_PROMPT)}\n\n{VISUALS_NOTE}"
     extra = custom_instructions.strip()
     if not extra:
         return base

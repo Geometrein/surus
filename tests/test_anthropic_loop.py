@@ -48,7 +48,8 @@ def _provider_with(queue, monkeypatch, tool_result=("PLAN", False)):
     import backend.agent.anthropic_provider as ap
     monkeypatch.setattr(
         ap, "execute_tool",
-        lambda dialect, pool, name, inp, statement_timeout_ms=None: tool_result,
+        lambda dialect, pool, name, inp, statement_timeout_ms=None,
+        saved_queries_loader=None: tool_result,
     )
     return p
 
@@ -59,6 +60,37 @@ def test_plain_answer_without_tools(monkeypatch):
     events = list(p.send("hi"))
     kinds = [(e.kind, e.text) for e in events if e.kind in ("text", "done")]
     assert kinds == [("text", "just an answer"), ("done", "")]
+
+
+def test_stop_halts_the_loop_before_the_next_model_call(monkeypatch):
+    # A runaway tool loop; stop() is armed via a tool result side effect. The
+    # loop must terminate (releasing the caller's lock) instead of running to the
+    # iteration cap — this is what keeps a stopped chat continuable.
+    queue = [
+        _response([_tool_use("run_query", {"sql": "select 1"})], "tool_use")
+        for _ in range(DEFAULT_AGENT_MAX_STEPS + 5)
+    ]
+    p = _provider_with(queue, monkeypatch)
+
+    def stopping_tool(*a, **k):
+        p.stop()
+        return ("PLAN", False)
+
+    import backend.agent.anthropic_provider as ap
+    monkeypatch.setattr(ap, "execute_tool", stopping_tool)
+
+    events = list(p.send("loop"))
+    assert events[-1].kind == "done"
+    assert not any(e.kind == "error" for e in events)  # not the iteration-cap path
+    assert p.client.messages.calls == 1  # stopped after the first step's tool
+
+
+def test_clear_stop_re_enables_sending(monkeypatch):
+    p = _provider_with([_response([_text("hi")], "end_turn")], monkeypatch)
+    p.stop()
+    p.clear_stop()
+    events = list(p.send("hello"))
+    assert [e.kind for e in events] == ["text", "done"]
 
 
 def test_tool_loop_emits_call_then_result_then_answer(monkeypatch):

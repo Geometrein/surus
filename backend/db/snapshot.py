@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from psycopg.rows import dict_row
 
-from backend.db.introspect import SCHEMA_FILTER
+from backend.db.introspect import SCHEMA_FILTER, estimate_view_rows
 
 if TYPE_CHECKING:
     from backend.db.extensions import ExtensionPlugin
@@ -148,6 +148,14 @@ def build_snapshot(
 
     # ── Assemble ─────────────────────────────────────────────────────────────
 
+    # Plain views store no rows (reltuples 0); use the planner's estimate so the
+    # schema tree / ERD don't render every view as "~0 rows".
+    view_est = estimate_view_rows(
+        pool,
+        [(r["schema"], r["name"]) for r in table_rows
+         if r["kind"] == "view" and int(r["row_estimate"]) <= 0],
+    )
+
     allowed = {(r["schema"], r["name"]) for r in table_rows}
 
     cols_by_table: dict[tuple[str, str], list[dict]] = {}
@@ -176,7 +184,7 @@ def build_snapshot(
             schema=r["schema"],
             name=r["name"],
             kind=r["kind"],
-            row_estimate=int(r["row_estimate"]),
+            row_estimate=view_est.get((r["schema"], r["name"]), int(r["row_estimate"])),
             columns=cols_by_table.get((r["schema"], r["name"]), []),
             fk_columns=fk_cols_by_table.get((r["schema"], r["name"]), set()),
         )

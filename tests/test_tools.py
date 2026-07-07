@@ -27,10 +27,17 @@ def _dialect(**methods) -> SimpleNamespace:
 
 def test_tool_defs_cover_the_expected_tools():
     names = {t["name"] for t in TOOL_DEFS}
-    assert names == {"run_explain", "run_query", "inspect_schema", "submit_query"}
+    assert names == {
+        "run_explain", "run_query", "inspect_schema", "submit_query",
+        "list_saved_queries", "render_chart",
+    }
     for t in TOOL_DEFS:
         assert t["input_schema"]["type"] == "object"
-        assert t["input_schema"]["required"]  # every tool declares required args
+    # Every tool that takes arguments declares which are required. list_saved_queries
+    # is argument-free, so it legitimately has no required list.
+    for t in TOOL_DEFS:
+        if t["input_schema"].get("properties"):
+            assert t["input_schema"]["required"]
 
 
 def test_submit_query_is_strict_and_closed():
@@ -104,6 +111,53 @@ def test_inspect_schema_missing_table_is_error():
                                   {"schema": "public", "table": "ghost"})
     assert is_error is True
     assert "not found" in text
+
+
+def test_render_chart_validates_columns_and_echoes_spec():
+    def fake_run_query(pool, sql, max_rows=None, statement_timeout_ms=None):
+        return QueryResult(columns=["month", "orders"], rows=[["2025-01", 10]], rowcount=1, duration_ms=1.0)
+
+    dialect = _dialect(run_query=fake_run_query)
+    text, is_error = execute_tool(
+        dialect, POOL, "render_chart",
+        {"sql": "select month, orders from t", "chart_type": "line", "x": "month", "y": ["orders"]},
+    )
+    assert is_error is False
+    payload = json.loads(text)
+    assert payload["chart_type"] == "line"
+    assert payload["columns"] == ["month", "orders"]
+
+
+def test_render_chart_reports_unknown_columns():
+    def fake_run_query(pool, sql, max_rows=None, statement_timeout_ms=None):
+        return QueryResult(columns=["month", "orders"], rows=[], rowcount=0, duration_ms=1.0)
+
+    dialect = _dialect(run_query=fake_run_query)
+    text, is_error = execute_tool(
+        dialect, POOL, "render_chart",
+        {"sql": "select * from t", "chart_type": "bar", "x": "day", "y": ["revenue"]},
+    )
+    assert is_error is True
+    assert "day" in text and "revenue" in text  # both missing columns surfaced
+
+
+def test_list_saved_queries_returns_name_folder_sql():
+    loader = lambda: [
+        {"name": "daily_active", "folder_id": "analytics", "sql": "select 1",
+         "connection_id": "c1", "id": "analytics/daily_active.sql"},
+    ]
+    text, is_error = execute_tool(
+        _dialect(), POOL, "list_saved_queries", {}, saved_queries_loader=loader
+    )
+    assert is_error is False
+    payload = json.loads(text)
+    assert payload == [{"name": "daily_active", "folder": "analytics", "sql": "select 1"}]
+
+
+def test_list_saved_queries_without_loader_is_graceful():
+    text, is_error = execute_tool(_dialect(), POOL, "list_saved_queries", {})
+    assert is_error is False
+    assert "No saved queries" in text
 
 
 def test_unknown_tool_is_error():

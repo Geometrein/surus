@@ -7,13 +7,17 @@ benchmark queries but never mutate the database.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from backend.db import querylog
 from backend.db.introspect import serialize_foreign_key
 
 if TYPE_CHECKING:
     from backend.db.dialects.base import Dialect
+
+# A zero-arg callable returning the user's saved queries (name/folder/sql), or
+# None when the agent has no workspace to read from. Injected per session.
+SavedQueriesLoader = Callable[[], list[dict[str, Any]]]
 
 # Tool schemas sent to the model. Prescriptive descriptions ("call this
 # when...") materially improve when the model reaches for each tool.
@@ -76,6 +80,66 @@ TOOL_DEFS: list[dict] = [
         },
     },
     {
+        "name": "render_chart",
+        "description": (
+            "Draw a chart in the chat to visualize data. Call this when a trend, "
+            "comparison, distribution, or time series reads better as a picture "
+            "than a table — the UI runs your SELECT and renders it with a charting "
+            "library. Provide a SELECT that returns tidy rows already aggregated "
+            "and ordered for plotting (e.g. one row per month, ORDER BY month), "
+            "keep it to a few hundred rows, and map columns to the axes. You can "
+            "still explain the chart in text afterwards; this does not end your turn."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql": {"type": "string", "description": "A single SELECT returning the rows to plot."},
+                "chart_type": {
+                    "type": "string",
+                    "enum": ["line", "bar", "area", "pie", "scatter"],
+                    "description": "The chart to draw.",
+                },
+                "x": {
+                    "type": "string",
+                    "description": "Column for the x-axis (or the category/label for pie).",
+                },
+                "y": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "One or more numeric columns to plot on the y-axis. Use "
+                        "exactly one for pie and scatter."
+                    ),
+                },
+                "series": {
+                    "type": "string",
+                    "description": (
+                        "Optional column whose distinct values become separate "
+                        "series (use with a single y column)."
+                    ),
+                },
+                "title": {"type": "string", "description": "Optional chart title."},
+            },
+            "required": ["sql", "chart_type", "x", "y"],
+        },
+    },
+    {
+        "name": "list_saved_queries",
+        "description": (
+            "List the SQL queries the user has already saved in their workspace "
+            "for this connection. Call this early to check whether a suitable "
+            "query already exists (reuse or adapt it rather than writing from "
+            "scratch) and to learn the user's conventions — which tables and "
+            "filters they actually use, and the shape of a 'known-good' query on "
+            "a large table (so you don't sample it blindly). Returns each saved "
+            "query's name, folder, and SQL. Takes no arguments."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
         "name": "submit_query",
         "description": (
             "Return the final answer. Call this exactly once, after the plan is "
@@ -108,8 +172,9 @@ TOOL_DEFS: list[dict] = [
 ]
 
 
-# In "question" mode the agent only reads — no EXPLAIN/tuning or submit_query.
-_QA_TOOL_NAMES = {"inspect_schema", "run_query"}
+# In "question" mode the agent only reads — no EXPLAIN/tuning or submit_query —
+# but it can still visualize what it finds.
+_QA_TOOL_NAMES = {"inspect_schema", "run_query", "list_saved_queries", "render_chart"}
 
 
 def tools_for_mode(mode: str) -> list[dict]:
@@ -125,10 +190,13 @@ def execute_tool(
     name: str,
     tool_input: dict[str, Any],
     statement_timeout_ms: int | None = None,
+    saved_queries_loader: "SavedQueriesLoader | None" = None,
 ) -> tuple[str, bool]:
     """Run a tool. Returns (result_text, is_error)."""
     with querylog.source("agent"):
-        return _execute_tool(dialect, pool, name, tool_input, statement_timeout_ms)
+        return _execute_tool(
+            dialect, pool, name, tool_input, statement_timeout_ms, saved_queries_loader
+        )
 
 
 def _execute_tool(
@@ -137,8 +205,19 @@ def _execute_tool(
     name: str,
     tool_input: dict[str, Any],
     statement_timeout_ms: int | None = None,
+    saved_queries_loader: "SavedQueriesLoader | None" = None,
 ) -> tuple[str, bool]:
     try:
+        if name == "list_saved_queries":
+            queries = saved_queries_loader() if saved_queries_loader else []
+            if not queries:
+                return "No saved queries found (no workspace open, or it's empty).", False
+            payload = [
+                {"name": q["name"], "folder": q.get("folder_id"), "sql": q["sql"]}
+                for q in queries
+            ]
+            return json.dumps(payload, default=str), False
+
         if name == "run_explain":
             plan = dialect.run_explain(
                 pool, tool_input["sql"], analyze=bool(tool_input.get("analyze", False)),
@@ -158,6 +237,35 @@ def _execute_tool(
                 "row_count": result.rowcount,
                 "truncated": result.truncated,
                 "duration_ms": round(result.duration_ms, 1),
+            }
+            return json.dumps(payload, default=str), False
+
+        if name == "render_chart":
+            # Validate the SELECT + column mapping so a wrong column name gets
+            # feedback; the UI re-runs this SQL (larger cap) to draw the chart.
+            y = tool_input.get("y") or []
+            if isinstance(y, str):
+                y = [y]
+            result = dialect.run_query(
+                pool, tool_input["sql"], max_rows=50,
+                statement_timeout_ms=statement_timeout_ms,
+            )
+            cols = set(result.columns)
+            needed = [tool_input.get("x")] + list(y)
+            if tool_input.get("series"):
+                needed.append(tool_input["series"])
+            missing = [c for c in needed if c and c not in cols]
+            if missing:
+                return (
+                    f"Columns {missing} are not in the query result. Available "
+                    f"columns: {result.columns}. Fix x/y/series to match the SELECT.",
+                    True,
+                )
+            payload = {
+                "status": "chart rendered in the chat",
+                "chart_type": tool_input.get("chart_type"),
+                "columns": result.columns,
+                "sample_rows": result.rowcount,
             }
             return json.dumps(payload, default=str), False
 

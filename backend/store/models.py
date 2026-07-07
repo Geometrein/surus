@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from pydantic import field_serializer
 from sqlmodel import Field, SQLModel
 
 from backend.config import DEFAULT_LLM_MODEL
@@ -17,6 +18,14 @@ def _uuid() -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _utc_isoformat(dt: datetime) -> str:
+    """UTC ISO-8601 with a trailing 'Z'. SQLite returns naive datetimes, which
+    browsers would otherwise parse as local time — so stamp them as UTC."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class ConnectionRow(SQLModel, table=True):
@@ -51,6 +60,8 @@ class ChatSession(SQLModel, table=True):
     title: str = "New chat"
     created_at: datetime = Field(default_factory=_now)
 
+    _ser_created_at = field_serializer("created_at")(staticmethod(_utc_isoformat))
+
 
 class ChatMessage(SQLModel, table=True):
     __tablename__ = "chat_messages"
@@ -61,6 +72,8 @@ class ChatMessage(SQLModel, table=True):
     content: str = ""
     steps_json: str | None = None  # serialized tool steps for replay/inspection
     created_at: datetime = Field(default_factory=_now)
+
+    _ser_created_at = field_serializer("created_at")(staticmethod(_utc_isoformat))
 
 
 class Setting(SQLModel, table=True):

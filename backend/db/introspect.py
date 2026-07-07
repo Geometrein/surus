@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -72,6 +73,45 @@ def serialize_foreign_key(fk: "ForeignKey") -> dict:
 SCHEMA_FILTER = "n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT LIKE 'pg_temp%'"
 
 
+def estimate_view_rows(
+    pool: ConnectionPool, views: "list[tuple[str, str]]"
+) -> dict[tuple[str, str], int]:
+    """Planner row estimates for plain views via ``EXPLAIN`` (no execution), since
+    their ``reltuples`` is 0 and reads as "~0 rows". Best-effort per view, each in
+    its own transaction so one that won't plan is skipped without poisoning the rest."""
+    if not views:
+        return {}
+    out: dict[tuple[str, str], int] = {}
+    with pool.connection() as conn:
+        for schema, name in views:
+            try:
+                with conn.transaction():
+                    with conn.cursor() as cur:
+                        # Hard cap so a pathological view can't stall the schema
+                        # build; on timeout it's skipped and keeps its estimate.
+                        cur.execute("SET LOCAL statement_timeout = 2000")
+                        cur.execute(
+                            sql.SQL("EXPLAIN (FORMAT JSON) SELECT * FROM {}").format(
+                                sql.Identifier(schema, name)
+                            )
+                        )
+                        plan = cur.fetchone()[0]
+                out[(schema, name)] = max(int(plan[0]["Plan"]["Plan Rows"]), 0)
+            except Exception:  # noqa: BLE001 - un-plannable/slow view: skip, keep the rest
+                continue
+    return out
+
+
+def _fill_view_estimates(pool: ConnectionPool, tables: list["Table"]) -> None:
+    """Replace the (meaningless) catalog row estimate of plain views in-place."""
+    views = [(t.schema, t.name) for t in tables if t.kind == "view" and t.row_estimate <= 0]
+    est = estimate_view_rows(pool, views)
+    for t in tables:
+        planned = est.get((t.schema, t.name))
+        if planned is not None:
+            t.row_estimate = planned
+
+
 def list_tables(
     pool: ConnectionPool,
     plugins: "list[ExtensionPlugin] | None" = None,
@@ -101,6 +141,8 @@ def list_tables(
             tables = [Table(**row) for row in cur.fetchall()]
     for plugin in (plugins or []):
         tables = plugin.filter_tables(tables)
+        tables = plugin.annotate_tables(pool, tables)
+    _fill_view_estimates(pool, tables)
     return tables
 
 
@@ -301,4 +343,11 @@ def get_table_detail(pool: ConnectionPool, schema: str, name: str) -> Table | No
                 [schema, name],
             )
             table.indexes = [Index(**row) for row in cur.fetchall()]
-            return table
+
+    # Substitute the planner's estimate for a plain view's 0 reltuples, after the
+    # introspection transaction closes so a failed EXPLAIN can't abort it.
+    if table.kind == "view" and table.row_estimate <= 0:
+        est = estimate_view_rows(pool, [(schema, name)])
+        if (schema, name) in est:
+            table.row_estimate = est[(schema, name)]
+    return table

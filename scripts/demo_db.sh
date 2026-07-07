@@ -9,7 +9,7 @@
 # arrays, uuid, inet, numeric), self-referencing trees/hierarchies, many-to-many
 # junction tables, cross-schema foreign keys (a real ERD), views, materialized
 # views, several index kinds (unique, partial, composite, GIN/GIST), and two
-# extensions Surus has plugins for: TimescaleDB (a hypertable + chunks) and
+# extensions Surus has plugins for: TimescaleDB and
 # PostGIS (geography columns + a spatial index).
 set -euo pipefail
 
@@ -72,7 +72,7 @@ CREATE SCHEMA marketing;
 CREATE SCHEMA analytics;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;    -- gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS timescaledb; -- hypertables (Surus plugin hides chunks)
+CREATE EXTENSION IF NOT EXISTS timescaledb; -- Surus plugin hides its internal catalog schemas
 CREATE EXTENSION IF NOT EXISTS postgis;     -- spatial types (Surus plugin hides system objs)
 
 -- ── enum types ─────────────────────────────────────────────────────────────
@@ -310,18 +310,6 @@ CREATE TABLE marketing.campaign_sends (
 );
 CREATE INDEX idx_campaign_sends_customer ON marketing.campaign_sends(customer_id);
 
--- ── TimescaleDB: clickstream events as a hypertable ─────────────────────────
-CREATE TABLE analytics.events (
-  time        timestamptz NOT NULL,
-  customer_id bigint REFERENCES commerce.customers(id),    -- FK from hypertable
-  event_type  text NOT NULL,
-  url         text,
-  session     uuid NOT NULL,
-  properties  jsonb NOT NULL DEFAULT '{}'
-);
-SELECT create_hypertable('analytics.events', 'time', chunk_time_interval => interval '7 days');
-CREATE INDEX idx_events_customer ON analytics.events(customer_id, time DESC);
-
 -- ════════════════════════ seed data ════════════════════════════════════════
 
 -- departments + employees (with a manager hierarchy)
@@ -539,19 +527,6 @@ UPDATE marketing.campaign_sends
 SET clicked_at = opened_at + (random()*2) * interval '1 hour'
 WHERE opened_at IS NOT NULL AND random() < 0.3;
 
--- ~100k clickstream events over the last 120 days (→ TimescaleDB chunks)
-INSERT INTO analytics.events (time, customer_id, event_type, url, session, properties)
-  SELECT now() - (random()*120) * interval '1 day',
-         (random()*4999+1)::int,
-         (ARRAY['page_view','page_view','search','add_to_cart','checkout'])[(random()*4+1)::int],
-         '/p/' || (random()*2999+1)::int,
-         gen_random_uuid(),
-         jsonb_build_object(
-           'referrer', (ARRAY['google','direct','email','ad'])[(random()*3+1)::int],
-           'device',   (ARRAY['mobile','desktop','tablet'])[(random()*2+1)::int]
-         )
-  FROM generate_series(1,100000);
-
 -- ── views ──────────────────────────────────────────────────────────────────
 CREATE VIEW commerce.order_summary AS
   SELECT o.id AS order_id, o.status, o.placed_at,
@@ -597,5 +572,5 @@ SQL
 
 echo "done — demo DB ready at postgresql://postgres:postgres@localhost:$PORT/demo"
 echo "      schemas: commerce, hr, support, marketing, analytics"
-echo "      ~3k products / 5k customers / 20k orders / 800 tickets / 15 campaigns / 100k events"
-echo "      extensions: timescaledb (analytics.events hypertable) + postgis (commerce.stores)"
+echo "      ~3k products / 5k customers / 20k orders / 800 tickets / 15 campaigns"
+echo "      extensions: timescaledb + postgis (commerce.stores)"

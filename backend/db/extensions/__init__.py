@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from backend.db.introspect import Table
@@ -33,6 +33,12 @@ class ExtensionPlugin(ABC):
 
     def filter_tables(self, tables: list["Table"]) -> list["Table"]:
         """Remove or rewrite entries in the table list seen by the UI and agent."""
+        return tables
+
+    def annotate_tables(self, pool: "Any", tables: list["Table"]) -> list["Table"]:
+        """Enrich table metadata using the pool, after :meth:`filter_tables`
+        (default no-op). Overridden where parent-relation stats mislead, e.g. a
+        TimescaleDB hypertable whose rows live in child chunks."""
         return tables
 
     def filter_table_sizes(self, rows: list[dict]) -> list[dict]:
