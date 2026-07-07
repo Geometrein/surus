@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { User, Bot, Cog, Copy, Check, ArrowDownToLine, Trash2 } from "lucide-react";
 import { useStore } from "../store";
 import type { LogEntry } from "../store";
-import { levelColor, sourceBadge } from "../utils";
+import { levelColor, sourceBadge, formatClock, ACTIVITY_LABELS, ACTIVITY_BADGE } from "../utils";
 import { Modal } from "./Modal";
 
 const SOURCE_ICONS = { user: User, agent: Bot, system: Cog };
@@ -20,17 +20,18 @@ function durationBadge(ms: number): string {
   return "bg-[#2a1010] text-red-400";
 }
 
-function formatLine(l: LogEntry): string {
-  return `${l.ts} [${l.source.toUpperCase()}] ${l.level.toUpperCase()}${l.durationMs != null ? ` [${l.durationMs.toFixed(1)}ms]` : ""} ${l.msg}`;
+function formatLine(l: LogEntry, tz: string): string {
+  return `${formatClock(l.ts, tz)} [${l.source.toUpperCase()}] ${l.level.toUpperCase()}${l.durationMs != null ? ` [${l.durationMs.toFixed(1)}ms]` : ""} ${l.msg}`;
 }
 
 export function LogsPage() {
-  const { logs, logFilterSources, logFilterLevels, logSearch, setLogFilterLevels, clearLogs } = useStore();
+  const { logs, logFilterSources, logFilterLevels, logFilterKinds, logSearch, setLogFilterLevels, clearLogs, timezone } = useStore();
   const [confirmClear, setConfirmClear] = useState(false);
 
   const filtered = logs.filter((l) => {
     if (logFilterSources.length > 0 && !logFilterSources.includes(l.source)) return false;
     if (logFilterLevels.length > 0 && !logFilterLevels.includes(l.level)) return false;
+    if (logFilterKinds.length > 0 && !logFilterKinds.includes(l.kind)) return false;
     if (logSearch && !l.msg.toLowerCase().includes(logSearch.toLowerCase())) return false;
     return true;
   });
@@ -66,9 +67,10 @@ export function LogsPage() {
     setLogFilterLevels(next);
   }
 
-  const copyAll = () => navigator.clipboard.writeText(filtered.map(formatLine).join("\n"));
+  const copyAll = () => navigator.clipboard.writeText(filtered.map((l) => formatLine(l, timezone)).join("\n"));
 
-  const filtersActive = logFilterSources.length > 0 || logFilterLevels.length > 0 || !!logSearch;
+  const filtersActive =
+    logFilterSources.length > 0 || logFilterLevels.length > 0 || logFilterKinds.length > 0 || !!logSearch;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -128,7 +130,7 @@ export function LogsPage() {
             </div>
           )}
           {filtered.map((l, i) => (
-            <LogRow key={l.ts + i} entry={l} />
+            <LogRow key={String(l.ts) + i} entry={l} tz={timezone} />
           ))}
         </div>
 
@@ -171,14 +173,14 @@ export function LogsPage() {
   );
 }
 
-function LogRow({ entry: l }: { entry: LogEntry }) {
+function LogRow({ entry: l, tz }: { entry: LogEntry; tz: string }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const Icon = SOURCE_ICONS[l.source as keyof typeof SOURCE_ICONS] ?? Cog;
 
   function copy(e: React.MouseEvent) {
     e.stopPropagation();
-    navigator.clipboard.writeText(formatLine(l));
+    navigator.clipboard.writeText(formatLine(l, tz));
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   }
@@ -188,10 +190,13 @@ function LogRow({ entry: l }: { entry: LogEntry }) {
       className={`group flex items-start gap-2 px-1.5 py-0.5 rounded border-l-2 hover:bg-[#17171b] cursor-default ${levelBorder(l.level)}`}
       onClick={() => setExpanded((e) => !e)}
     >
-      <span className="text-[#6a6a72] shrink-0 tabular-nums whitespace-nowrap w-[88px]">{l.ts}</span>
+      <span className="text-[#6a6a72] shrink-0 tabular-nums whitespace-nowrap w-[88px]">{formatClock(l.ts, tz)}</span>
       <span className={`shrink-0 rounded px-1 text-[10px] uppercase tracking-wide flex items-center gap-0.5 ${sourceBadge(l.source)}`}>
         <Icon size={9} />
         {l.source}
+      </span>
+      <span className={`shrink-0 rounded px-1 text-[10px] uppercase tracking-wide ${ACTIVITY_BADGE[l.kind]}`}>
+        {ACTIVITY_LABELS[l.kind]}
       </span>
       <span className={`shrink-0 w-9 text-[10px] uppercase ${levelColor(l.level)}`}>{l.level}</span>
       {l.durationMs != null && (

@@ -3,7 +3,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Info, SquareTerminal } from "lucide-react";
 import { api } from "../api/client";
 import { useStore } from "../store";
+import { browserTimezone } from "../utils";
 import { SidebarPanel, SidebarHeader } from "./SidebarPanel";
+
+// Every IANA timezone the runtime knows, with a small fallback for older engines.
+const TIMEZONES: string[] = (() => {
+  try {
+    const fn = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+    if (fn) return fn("timeZone");
+  } catch { /* fall through */ }
+  return [
+    "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Asia/Kolkata", "Asia/Shanghai",
+    "Asia/Tokyo", "Australia/Sydney",
+  ];
+})();
 
 // ---------------------------------------------------------------------------
 // Categories — each is a themed group in the left rail. New LLM providers or DB
@@ -464,6 +478,7 @@ function EditorSettings() {
   const dirty = Math.round(Number(limit)) !== savedLimit;
 
   return (
+    <>
     <Section title="Queries">
       <Field
         label="Query timeout"
@@ -501,6 +516,33 @@ function EditorSettings() {
             {saved ? "Saved ✓" : "Save"}
           </button>
         </div>
+      </Field>
+    </Section>
+
+    <DisplaySettings />
+    </>
+  );
+}
+
+function DisplaySettings() {
+  const timezone = useStore((s) => s.timezone);
+  const setTimezone = useStore((s) => s.setTimezone);
+  return (
+    <Section title="Display">
+      <Field
+        label="Timezone"
+        hint="How timestamps (chat history, logs) are shown. Automatic follows your computer's timezone."
+      >
+        <select
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          className="bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0] max-w-xs"
+        >
+          <option value="">Automatic ({browserTimezone()})</option>
+          {TIMEZONES.map((z) => (
+            <option key={z} value={z}>{z}</option>
+          ))}
+        </select>
       </Field>
     </Section>
   );

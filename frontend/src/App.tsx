@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, Logs } from "lucide-react";
+import { Settings, Logs, MessageSquare } from "lucide-react";
 import { useStore, type Page } from "./store";
 import { api } from "./api/client";
 import { shortVersion, QUERY_LOG_POLL_MS } from "./utils";
@@ -12,6 +12,7 @@ import { LogsPage } from "./components/LogsPage";
 import { SchemaDiagramPage, SchemaDiagramSidebar } from "./components/SchemaDiagramPage";
 import { SettingsPage, SettingsSidebar } from "./components/SettingsPage";
 import { ChatPanel } from "./components/ChatPanel";
+import { AskPage } from "./components/AskPage";
 
 function useQueryLogPoller() {
   const ingest = useStore((s) => s.ingestQueryLogs);
@@ -82,6 +83,9 @@ export function App() {
           </PanelGroup>
         </div>
 
+        {/* ── Ask ── sidebar = chat history, central = chat with the database */}
+        {page === "ask" && <AskPage />}
+
         {/* ── Connections ── sidebar = list, central = stats */}
         {page === "connections" && (
           <PanelGroup direction="horizontal" className="flex-1 min-w-0 min-h-0">
@@ -150,11 +154,14 @@ function ActivityBar({ page }: { page: Page }) {
       <ActivityTab active={page === "connections"} page="connections" title="Connections">
         <IconConnections />
       </ActivityTab>
+      <ActivityTab active={page === "schema"} page="schema" title="Schema Diagram">
+        <IconSchema />
+      </ActivityTab>
       <ActivityTab active={page === "editor"} page="editor" title="Editor">
         <IconEditor />
       </ActivityTab>
-      <ActivityTab active={page === "schema"} page="schema" title="Schema Diagram">
-        <IconSchema />
+      <ActivityTab active={page === "ask"} page="ask" title="Ask your data">
+        <MessageSquare size={20} strokeWidth={1.5} />
       </ActivityTab>
       <div className="mt-auto w-full">
         <ActivityTab active={page === "logs"} page="logs" title="Logs">

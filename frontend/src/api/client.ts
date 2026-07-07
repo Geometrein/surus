@@ -342,6 +342,8 @@ export const api = {
     req<ChatSessionT[]>(`/chat/sessions?connectionId=${connectionId}`),
   getSessionMessages: (sessionId: string) =>
     req<ChatMessageT[]>(`/chat/sessions/${sessionId}/messages`),
+  stopChat: (sessionId: string) =>
+    req<{ ok: boolean }>(`/chat/sessions/${sessionId}/stop`, { method: "POST" }),
   deleteSession: (sessionId: string) =>
     req<{ ok: boolean }>(`/chat/sessions/${sessionId}`, { method: "DELETE" }),
   renameSession: (sessionId: string, title: string) =>

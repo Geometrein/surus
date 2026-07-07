@@ -7,6 +7,8 @@ import {
   sourceBadge,
   sourceLabel,
   levelColor,
+  formatClock,
+  formatDateTime,
 } from "./utils";
 
 describe("formatBytes", () => {
@@ -64,5 +66,28 @@ describe("levelColor", () => {
     expect(levelColor("error")).toBe("text-red-400");
     expect(levelColor("info")).toBe("text-[#a0a0a8]");
     expect(levelColor("mystery")).toBe("text-[#a0a0a8]");
+  });
+});
+
+describe("timezone formatting", () => {
+  // 2023-11-14T22:13:20Z
+  const ms = 1_700_000_000_000;
+
+  it("formatClock renders the wall clock in the given IANA zone", () => {
+    expect(formatClock(ms, "UTC")).toBe("22:13:20");
+    // New York is UTC-5 in November (EST) → 17:13:20.
+    expect(formatClock(ms, "America/New_York")).toBe("17:13:20");
+  });
+
+  it("formatClock accepts an ISO string and falls back on a bad zone", () => {
+    expect(formatClock("2023-11-14T22:13:20Z", "UTC")).toBe("22:13:20");
+    expect(() => formatClock(ms, "Not/AZone")).not.toThrow();
+  });
+
+  it("formatDateTime honours the zone", () => {
+    const utc = formatDateTime(ms, "UTC");
+    const tokyo = formatDateTime(ms, "Asia/Tokyo"); // UTC+9 → next day 07:13
+    expect(utc).not.toBe(tokyo);
+    expect(tokyo).toMatch(/07:13/);
   });
 });

@@ -1,13 +1,15 @@
 import { create } from "zustand";
 import type { QueryLogEntry } from "./api/client";
+import type { ActivityKind } from "./utils";
 
-export type Page = "editor" | "connections" | "schema" | "logs" | "settings";
+export type Page = "editor" | "ask" | "connections" | "schema" | "logs" | "settings";
 export type LogSource = "user" | "agent" | "system";
 
 export interface LogEntry {
-  ts: string;
+  ts: number; // epoch ms — formatted at render time in the chosen timezone
   level: "info" | "warn" | "error";
   source: LogSource;
+  kind: ActivityKind; // activity type — for the logs' activity filter
   msg: string;
   durationMs?: number;
 }
@@ -38,6 +40,7 @@ interface AppState {
   // Log page filters
   logFilterSources: LogSource[];   // empty = all sources
   logFilterLevels: LogEntry["level"][];  // empty = all levels
+  logFilterKinds: ActivityKind[];  // empty = all activity kinds
   logSearch: string;
   // Schema diagram filters
   diagramSearch: string;
@@ -51,6 +54,8 @@ interface AppState {
   // and never persisted — every reload and connection switch starts read-only,
   // so write access is always a deliberate, in-session opt-in.
   writeMode: boolean;
+  // Display timezone for timestamps (logs, chat). "" = the browser's timezone.
+  timezone: string;
 
   setActiveConnection: (id: string | null, version?: string | null) => void;
   setStatsConnection: (id: string | null) => void;
@@ -61,11 +66,12 @@ interface AppState {
   openTab: (title: string, sql: string, run?: boolean, key?: string) => void;
   updateTab: (id: string, updates: Partial<Pick<EditorTab, "title" | "key">>) => void;
   closeTab: (id: string) => void;
-  log: (level: LogEntry["level"], msg: string, source?: LogSource) => void;
+  log: (level: LogEntry["level"], msg: string, source?: LogSource, kind?: ActivityKind) => void;
   ingestQueryLogs: (entries: QueryLogEntry[]) => void;
   clearLogs: () => void;
   setLogFilterSources: (s: LogSource[]) => void;
   setLogFilterLevels: (l: LogEntry["level"][]) => void;
+  setLogFilterKinds: (k: ActivityKind[]) => void;
   setLogSearch: (s: string) => void;
   setDiagramSearch: (s: string) => void;
   setDiagramHiddenSchemas: (s: string[]) => void;
@@ -75,6 +81,7 @@ interface AppState {
   setChatOpen: (open: boolean) => void;
   setPendingChatMessage: (msg: string | null) => void;
   setWriteMode: (v: boolean) => void;
+  setTimezone: (tz: string) => void;
 }
 
 // Persisted schema-diagram preferences. Every localStorage access is wrapped:
@@ -98,6 +105,24 @@ function loadBool(key: string, fallback: boolean): boolean {
 function saveBool(key: string, value: boolean): void {
   try {
     localStorage.setItem(key, String(value));
+  } catch { /* ignore */ }
+}
+
+// Display timezone: "" means "use the browser's timezone". Persisted so the
+// choice survives reloads (a plain preference, so localStorage not the backend).
+const TIMEZONE_KEY = "surus:timezone";
+
+function loadStr(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStr(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
   } catch { /* ignore */ }
 }
 
@@ -132,6 +157,7 @@ export const useStore = create<AppState>((set, get) => ({
   queryLogSeq: 0,
   logFilterSources: [],
   logFilterLevels: [],
+  logFilterKinds: [],
   logSearch: "",
   diagramSearch: "",
   diagramHiddenSchemas: loadDiagramHidden(null),
@@ -141,6 +167,7 @@ export const useStore = create<AppState>((set, get) => ({
   chatOpen: true,
   pendingChatMessage: null,
   writeMode: false,
+  timezone: loadStr(TIMEZONE_KEY, ""),
 
   setActiveConnection: (id, version = null) =>
     // Reload this connection's persisted hidden-schema filter as we switch, and
@@ -183,11 +210,11 @@ export const useStore = create<AppState>((set, get) => ({
         s.activeTabId === id ? (tabs[idx - 1] ?? tabs[idx] ?? tabs[0]).id : s.activeTabId;
       return { tabs, activeTabId };
     }),
-  log: (level, msg, source = "user") =>
+  log: (level, msg, source = "user", kind = "app") =>
     set((s) => ({
       logs: [
         ...s.logs.slice(-499),
-        { ts: new Date().toLocaleTimeString(), level, source, msg },
+        { ts: Date.now(), level, source, kind, msg },
       ],
     })),
   ingestQueryLogs: (entries) =>
@@ -195,9 +222,10 @@ export const useStore = create<AppState>((set, get) => ({
       const fresh = entries.filter((e) => e.seq > s.queryLogSeq);
       if (fresh.length === 0) return s;
       const mapped: LogEntry[] = fresh.map((e) => ({
-        ts: new Date(e.ts * 1000).toLocaleTimeString(),
+        ts: e.ts * 1000,
         level: e.error ? "error" : "info",
         source: e.source,
+        kind: "sql", // backend query-log rows are always an executed statement
         durationMs: e.durationMs,
         msg:
           `${e.pool ? `[${e.pool}] ` : ""}` +
@@ -211,6 +239,7 @@ export const useStore = create<AppState>((set, get) => ({
   clearLogs: () => set({ logs: [] }),
   setLogFilterSources: (logFilterSources) => set({ logFilterSources }),
   setLogFilterLevels: (logFilterLevels) => set({ logFilterLevels }),
+  setLogFilterKinds: (logFilterKinds) => set({ logFilterKinds }),
   setLogSearch: (logSearch) => set({ logSearch }),
   setDiagramSearch: (diagramSearch) => set({ diagramSearch }),
   setDiagramHiddenSchemas: (diagramHiddenSchemas) => {
@@ -232,4 +261,5 @@ export const useStore = create<AppState>((set, get) => ({
   setChatOpen: (chatOpen) => set({ chatOpen }),
   setPendingChatMessage: (pendingChatMessage) => set({ pendingChatMessage }),
   setWriteMode: (writeMode) => set({ writeMode }),
+  setTimezone: (timezone) => { saveStr(TIMEZONE_KEY, timezone); set({ timezone }); },
 }));

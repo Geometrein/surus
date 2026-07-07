@@ -16,7 +16,10 @@ import { Modal } from "./Modal";
 import { SidebarPanel, SidebarHeader } from "./SidebarPanel";
 import { SearchInput } from "./SearchInput";
 import { ToggleSwitch } from "./ToggleSwitch";
-import { SOURCE_LABELS, FILE_TREE_POLL_MS, type LogSource } from "../utils";
+import {
+  SOURCE_LABELS, FILE_TREE_POLL_MS, type LogSource,
+  ALL_ACTIVITY_KINDS, ACTIVITY_LABELS, ACTIVITY_BADGE, type ActivityKind,
+} from "../utils";
 
 // ---------------------------------------------------------------------------
 // Editor sidebar — queries + schema tree
@@ -221,18 +224,21 @@ const LEVEL_CHIP_ACTIVE: Record<string, string> = {
 const CHIP_INACTIVE = "border-[#2c2c33] text-[#4a4a52] hover:text-[#8a8a92] hover:border-[#3a3a42]";
 
 export function LogsSidebar() {
-  const { logs, logFilterSources, logFilterLevels, logSearch, setLogFilterSources, setLogFilterLevels, setLogSearch } =
-    useStore();
+  const {
+    logs, logFilterSources, logFilterLevels, logFilterKinds, logSearch,
+    setLogFilterSources, setLogFilterLevels, setLogFilterKinds, setLogSearch,
+  } = useStore();
 
-  const { sourceCounts, levelCounts, queries, slowest, avg } = useMemo(() => {
+  const { sourceCounts, levelCounts, kindCounts, queries, slowest, avg } = useMemo(() => {
     const sc: Record<string, number> = { user: 0, agent: 0, system: 0 };
     const lc: Record<string, number> = { info: 0, warn: 0, error: 0 };
+    const kc = {} as Record<ActivityKind, number>;
     let queries = 0, slowest = 0, totalDur = 0;
     for (const l of logs) {
-      sc[l.source]++; lc[l.level]++;
+      sc[l.source]++; lc[l.level]++; kc[l.kind] = (kc[l.kind] ?? 0) + 1;
       if (l.durationMs != null) { queries++; totalDur += l.durationMs; slowest = Math.max(slowest, l.durationMs); }
     }
-    return { sourceCounts: sc, levelCounts: lc, queries, slowest, avg: queries ? totalDur / queries : 0 };
+    return { sourceCounts: sc, levelCounts: lc, kindCounts: kc, queries, slowest, avg: queries ? totalDur / queries : 0 };
   }, [logs]);
 
   function toggleSource(s: LogSource) {
@@ -248,6 +254,16 @@ export function LogsSidebar() {
       : [...logFilterLevels, l];
     setLogFilterLevels(next);
   }
+
+  function toggleKind(k: ActivityKind) {
+    const next = logFilterKinds.includes(k)
+      ? logFilterKinds.filter((x) => x !== k)
+      : [...logFilterKinds, k];
+    setLogFilterKinds(next);
+  }
+
+  // Only offer chips for activity kinds actually present in the current logs.
+  const presentKinds = ALL_ACTIVITY_KINDS.filter((k) => (kindCounts[k] ?? 0) > 0);
 
   return (
     <SidebarPanel>
@@ -281,6 +297,30 @@ export function LogsSidebar() {
             })}
           </div>
         </div>
+
+        {/* Activity — what kind of work each entry represents. */}
+        {presentKinds.length > 0 && (
+          <div>
+            <div className="text-[10px] font-semibold tracking-wider text-[#6a6a72] mb-2">ACTIVITY</div>
+            <div className="flex flex-wrap gap-1.5">
+              {presentKinds.map((k) => {
+                const active = logFilterKinds.length === 0 || logFilterKinds.includes(k);
+                return (
+                  <button
+                    key={k}
+                    onClick={() => toggleKind(k)}
+                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[11px] transition-colors ${
+                      active ? `${ACTIVITY_BADGE[k]} border-transparent` : CHIP_INACTIVE
+                    }`}
+                  >
+                    {ACTIVITY_LABELS[k]}
+                    <span className="tabular-nums text-[10px] opacity-70">{kindCounts[k]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Level */}
         <div>
