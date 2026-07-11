@@ -27,7 +27,8 @@ def get_snapshot(connection_id: str) -> dict:
                 "kind":        t.kind,
                 "rowEstimate": t.row_estimate,
                 "columns": [
-                    {"name": col["name"], "type": col["data_type"], "isFk": col["name"] in t.fk_columns}
+                    {"name": col.name, "type": col.data_type,
+                     "isFk": any(fk.column == col.name for fk in t.foreign_keys)}
                     for col in t.columns
                 ],
             }
@@ -43,8 +44,8 @@ def get_snapshot_sizes(connection_id: str) -> dict:
     db = deps.get_database(connection_id)
     return {
         "sizes": [
-            {"schema": r["schema"], "name": r["name"], "sizeBytes": r["total_bytes"]}
-            for r in db.table_sizes()
+            {"schema": t.schema, "name": t.name, "sizeBytes": t.total_bytes}
+            for t in db.table_sizes()
         ],
     }
 

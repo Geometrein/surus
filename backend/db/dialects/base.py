@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from backend.db.extensions import ExtensionPlugin
     from backend.db.introspect import Table
     from backend.db.query import QueryResult
+    from backend.db.snapshot import Snapshot
 
 
 class Dialect(ABC):
@@ -76,16 +77,23 @@ class Dialect(ABC):
     # -- introspection -------------------------------------------------------
 
     @abstractmethod
-    def list_tables(self, pool: Any, plugins: "list[ExtensionPlugin] | None" = None) -> list["Table"]:
+    def build_snapshot(
+        self,
+        pool: Any,
+        plugins: "list[ExtensionPlugin] | None" = None,
+        *,
+        structure: bool = True,
+        sizes: bool = False,
+    ) -> "Snapshot":
+        """The one whole-database introspection entry point (UI and agent).
+
+        ``structure`` adds columns/FKs/indexes/edges; ``sizes`` adds on-disk
+        totals. Row estimates and plugin filtering/annotation apply always.
+        """
         ...
 
     @abstractmethod
     def get_table_detail(self, pool: Any, schema: str, table: str) -> "Table | None":
-        ...
-
-    @abstractmethod
-    def list_all_table_details(self, pool: Any) -> "dict[tuple[str, str], Table]":
-        """Batched columns/FKs/indexes for every table, keyed by (schema, name)."""
         ...
 
     # -- query ---------------------------------------------------------------

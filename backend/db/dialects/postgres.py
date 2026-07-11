@@ -15,7 +15,7 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from backend.db import introspect, query, querylog
+from backend.db import introspect, query, querylog, snapshot
 from backend.db.connections import get_password
 from backend.db.dialects.base import Dialect
 from backend.db.extensions import detect as detect_extension_plugins
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from backend.db.extensions import ExtensionPlugin
     from backend.db.introspect import Table
     from backend.db.query import QueryResult
+    from backend.db.snapshot import Snapshot
 
 # Fail fast on a bad host/credentials instead of hanging on the pool timeout.
 CONNECT_TIMEOUT_S = 6
@@ -153,14 +154,18 @@ class PostgresDialect(Dialect):
 
     # -- introspection -------------------------------------------------------
 
-    def list_tables(self, pool: Any, plugins: "list[ExtensionPlugin] | None" = None) -> list["Table"]:
-        return introspect.list_tables(pool, plugins=plugins)
+    def build_snapshot(
+        self,
+        pool: Any,
+        plugins: "list[ExtensionPlugin] | None" = None,
+        *,
+        structure: bool = True,
+        sizes: bool = False,
+    ) -> "Snapshot":
+        return snapshot.build_snapshot(pool, plugins=plugins, structure=structure, sizes=sizes)
 
     def get_table_detail(self, pool: Any, schema: str, table: str) -> "Table | None":
         return introspect.get_table_detail(pool, schema, table)
-
-    def list_all_table_details(self, pool: Any) -> "dict[tuple[str, str], Table]":
-        return introspect.list_all_table_details(pool)
 
     # -- query ---------------------------------------------------------------
 

@@ -41,16 +41,13 @@ class ExtensionPlugin(ABC):
         TimescaleDB hypertable whose rows live in child chunks."""
         return tables
 
-    def filter_table_sizes(self, rows: list[dict]) -> list[dict]:
-        """Remove or rewrite entries in the stats table-size list."""
-        return rows
-
     def table_size_where(self, schema_col: str = "n.nspname", name_col: str = "c.relname") -> str | None:
-        """Optional SQL fragment ANDed into the snapshot's table-size WHERE clause.
+        """Optional SQL fragment ANDed into the snapshot builder's relation WHERE clause.
 
-        Use this to exclude rows before Postgres computes pg_total_relation_size,
-        which can be expensive when there are many internal objects (e.g. TS chunks).
-        Return None to add no constraint.
+        Use this to exclude relations before any per-relation work happens
+        (structure lookups, pg_total_relation_size), which can be expensive when
+        there are many internal objects (e.g. TS chunks). Return None to add no
+        constraint.
         """
         return None
 

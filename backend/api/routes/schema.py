@@ -39,7 +39,7 @@ def get_all_columns(connection_id: str) -> dict:
     snap = db.snapshot
     result: dict[str, dict[str, list[str]]] = {}
     for t in snap.tables:
-        result.setdefault(t.schema, {})[t.name] = [col["name"] for col in t.columns]
+        result.setdefault(t.schema, {})[t.name] = [col.name for col in t.columns]
     return result
 
 
@@ -61,7 +61,8 @@ def get_relationships(connection_id: str) -> dict:
                 "kind": t.kind,
                 "rowEstimate": t.row_estimate,
                 "columns": [
-                    {"name": col["name"], "isFk": col["name"] in t.fk_columns}
+                    {"name": col.name,
+                     "isFk": any(fk.column == col.name for fk in t.foreign_keys)}
                     for col in t.columns
                 ],
             }

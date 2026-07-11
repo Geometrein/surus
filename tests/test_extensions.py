@@ -71,10 +71,6 @@ def test_postgis_filters_system_objects():
     ]
     kept = p.filter_tables(tables)
     assert [t.name for t in kept] == ["stores"]
-
-    rows = [{"schema": "public", "name": "spatial_ref_sys"},
-            {"schema": "commerce", "name": "stores"}]
-    assert p.filter_table_sizes(rows) == [{"schema": "commerce", "name": "stores"}]
     assert "spatial_ref_sys" in p.table_size_where()
 
 
@@ -84,10 +80,8 @@ def test_base_plugin_hooks_are_noops():
 
     p = Bare()
     tables = [Table(schema="public", name="t", kind="table")]
-    rows = [{"schema": "public", "name": "t"}]
     assert p.filter_tables(tables) == tables
     assert p.annotate_tables(None, tables) == tables
-    assert p.filter_table_sizes(rows) == rows
     assert p.table_size_where() is None
 
 
@@ -113,17 +107,6 @@ def test_timescaledb_filters_out_chunks_and_catalog_views():
     ]
     kept = p.filter_tables(tables)
     assert [t.name for t in kept] == ["metrics"]
-
-
-def test_timescaledb_filters_table_sizes():
-    p = TimescaleDBPlugin()
-    rows = [
-        {"schema": "public", "name": "metrics"},
-        {"schema": "_timescaledb_internal", "name": "_hyper_1_1_chunk"},
-        {"schema": "timescaledb_information", "name": "jobs"},
-    ]
-    kept = p.filter_table_sizes(rows)
-    assert kept == [{"schema": "public", "name": "metrics"}]
 
 
 def test_timescaledb_table_size_where_clause():

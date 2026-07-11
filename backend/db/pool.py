@@ -64,9 +64,6 @@ class Database:
 
     # -- engine operations, bound to this connection's read-only pool --------
 
-    def list_tables(self) -> list["Table"]:
-        return self.dialect.list_tables(self.ro, plugins=self.plugins)
-
     def get_table_detail(self, schema: str, table: str) -> "Table | None":
         return self.dialect.get_table_detail(self.ro, schema, table)
 
@@ -87,13 +84,13 @@ class Database:
             self._snapshot = self._build_snapshot()
 
     def _build_snapshot(self) -> "Snapshot":
-        from backend.db.snapshot import build_snapshot
-        return build_snapshot(self.ro, self.plugins)
+        return self.dialect.build_snapshot(self.ro, plugins=self.plugins)
 
-    def table_sizes(self) -> list[dict]:
-        """Per-table on-disk sizes, computed on demand (not part of the snapshot)."""
-        from backend.db.snapshot import table_sizes
-        return table_sizes(self.ro, self.plugins)
+    def table_sizes(self) -> list["Table"]:
+        """Per-table on-disk sizes, computed on demand (not part of the cached snapshot)."""
+        return self.dialect.build_snapshot(
+            self.ro, plugins=self.plugins, structure=False, sizes=True
+        ).tables
 
     def run_query(
         self,

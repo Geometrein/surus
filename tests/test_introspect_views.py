@@ -1,4 +1,4 @@
-"""View row-estimate substitution (estimate_view_rows / _fill_view_estimates).
+"""View row-estimate substitution (estimate_view_rows / fill_view_estimates).
 
 A plain view has no stored reltuples, so its catalog row estimate is 0; these
 helpers replace it with the planner's EXPLAIN estimate. Driven by a fake pool —
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from backend.db.introspect import Table, _fill_view_estimates, estimate_view_rows
+from backend.db.introspect import Table, fill_view_estimates, estimate_view_rows
 
 
 class _FakePool:
@@ -89,7 +89,7 @@ def test_estimate_view_rows_empty_is_noop():
     assert estimate_view_rows(None, []) == {}
 
 
-def test_fill_view_estimates_only_touches_zero_row_views():
+def testfill_view_estimates_only_touches_zero_row_views():
     pool = _FakePool({("commerce", "order_summary"): 4210})
     tables = [
         Table(schema="commerce", name="order_summary", kind="view", row_estimate=0),
@@ -97,6 +97,6 @@ def test_fill_view_estimates_only_touches_zero_row_views():
         # A view that somehow already has an estimate is left alone (not re-planned).
         Table(schema="analytics", name="product_sales", kind="matview", row_estimate=50),
     ]
-    _fill_view_estimates(pool, tables)
+    fill_view_estimates(pool, tables)
     by_name = {t.name: t.row_estimate for t in tables}
     assert by_name == {"order_summary": 4210, "orders": 999, "product_sales": 50}

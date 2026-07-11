@@ -40,8 +40,8 @@ class TimescaleDBPlugin(ExtensionPlugin):
 
     def annotate_tables(self, pool: Any, tables: list["Table"]) -> list["Table"]:
         """Replace the parent hypertable's ~0 row/size estimate with the sum of
-        its child chunks' catalog stats, so the agent doesn't read it as empty.
-        Still an estimate (compressed chunks count compressed rows); best-effort."""
+        its child chunks' catalog stats, so nothing reads a hypertable as empty.
+        Still an estimate (analyze staleness); best-effort."""
         try:
             totals = self._hypertable_totals(pool)
         except Exception:  # noqa: BLE001 - TS version/catalog differences shouldn't break introspection
@@ -56,32 +56,59 @@ class TimescaleDBPlugin(ExtensionPlugin):
             t.total_bytes = max(t.total_bytes, total_bytes)
         return tables
 
-    @staticmethod
-    def _hypertable_totals(pool: Any) -> dict[tuple[str, str], tuple[int, int]]:
+    # A compressed chunk's reltuples counts ~1000-row compression batches, so a
+    # plain SUM(reltuples) undercounts by ~1000x; use the pre-compression row
+    # counts (and compressed sizes) TimescaleDB keeps in its catalog instead.
+    _TOTALS_SQL = """
+        SELECT c.hypertable_schema AS schema,
+               c.hypertable_name   AS name,
+               COALESCE(SUM(COALESCE(ccs.numrows_pre_compression,
+                                     GREATEST(ch.reltuples, 0)::bigint)), 0)::bigint AS rows,
+               COALESCE(SUM(pg_total_relation_size(ch.oid)
+                            + COALESCE(ccs.compressed_heap_size
+                                       + ccs.compressed_toast_size
+                                       + ccs.compressed_index_size, 0)), 0)::bigint AS bytes
+        FROM timescaledb_information.chunks c
+        JOIN pg_class ch ON ch.relname = c.chunk_name
+        JOIN pg_namespace n ON n.oid = ch.relnamespace
+                           AND n.nspname = c.chunk_schema
+        LEFT JOIN _timescaledb_catalog.chunk cat
+               ON cat.schema_name = c.chunk_schema AND cat.table_name = c.chunk_name
+        LEFT JOIN _timescaledb_catalog.compression_chunk_size ccs
+               ON ccs.chunk_id = cat.id
+        GROUP BY c.hypertable_schema, c.hypertable_name
+    """
+
+    # Fallback for TS versions/roles without the compression catalog.
+    _TOTALS_SQL_BASIC = """
+        SELECT c.hypertable_schema AS schema,
+               c.hypertable_name   AS name,
+               COALESCE(SUM(GREATEST(ch.reltuples, 0)), 0)::bigint   AS rows,
+               COALESCE(SUM(pg_total_relation_size(ch.oid)), 0)::bigint AS bytes
+        FROM timescaledb_information.chunks c
+        JOIN pg_class ch ON ch.relname = c.chunk_name
+        JOIN pg_namespace n ON n.oid = ch.relnamespace
+                           AND n.nspname = c.chunk_schema
+        GROUP BY c.hypertable_schema, c.hypertable_name
+    """
+
+    @classmethod
+    def _hypertable_totals(cls, pool: Any) -> dict[tuple[str, str], tuple[int, int]]:
         """Per-hypertable ``(row_estimate, total_bytes)`` summed across chunks."""
         from psycopg.rows import dict_row
 
-        sql = """
-            SELECT c.hypertable_schema AS schema,
-                   c.hypertable_name   AS name,
-                   COALESCE(SUM(GREATEST(ch.reltuples, 0)), 0)::bigint   AS rows,
-                   COALESCE(SUM(pg_total_relation_size(ch.oid)), 0)::bigint AS bytes
-            FROM timescaledb_information.chunks c
-            JOIN pg_class ch ON ch.relname = c.chunk_name
-            JOIN pg_namespace n ON n.oid = ch.relnamespace
-                               AND n.nspname = c.chunk_schema
-            GROUP BY c.hypertable_schema, c.hypertable_name
-        """
-        with pool.connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(sql)
-                return {
-                    (r["schema"], r["name"]): (r["rows"], r["bytes"])
-                    for r in cur.fetchall()
-                }
-
-    def filter_table_sizes(self, rows: list[dict]) -> list[dict]:
-        return [r for r in rows if not _is_internal(r["schema"], r["name"])]
+        for sql in (cls._TOTALS_SQL, cls._TOTALS_SQL_BASIC):
+            try:
+                with pool.connection() as conn:
+                    with conn.cursor(row_factory=dict_row) as cur:
+                        cur.execute(sql)
+                        return {
+                            (r["schema"], r["name"]): (r["rows"], r["bytes"])
+                            for r in cur.fetchall()
+                        }
+            except Exception:  # noqa: BLE001 - try the next variant; caller degrades on total failure
+                continue
+        raise RuntimeError("hypertable totals unavailable")
 
     def table_size_where(self, schema_col: str = "n.nspname", name_col: str = "c.relname") -> str | None:
         # Regex (no '%'), safe to inline into the snapshot builder's query.
