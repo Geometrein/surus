@@ -43,7 +43,7 @@ The companion can be run as a local web app or a native MacOS app.
 
 **Agent**
 - Tight Text-to-SQL loop that uses query plans and schema stats to optimize queries.
-- Anthropic and OpenAI providers with configurable prompts, step/token limits and tool timeouts
+- Anthropic, OpenAI and Google providers with configurable prompts, step/token limits and tool timeouts
 - Three chat modes:
   - **SQL:** Turn a plain text request into a performant SQL query
   - **Question:** Answer questions about your data in plain text

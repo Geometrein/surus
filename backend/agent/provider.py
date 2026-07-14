@@ -17,13 +17,21 @@ if TYPE_CHECKING:
     from backend.db.dialects.base import Dialect
     from backend.db.extensions import ExtensionPlugin
 
-# Models offered in the UI, per provider. Anthropic defaults to Opus 4.8 — the
-# EXPLAIN→evaluate→iterate loop benefits from its reasoning; the smaller models
-# are cheaper, faster options. These are just the defaults surfaced in the
+# Models offered in the UI, per provider, ordered most to least capable. The
+# default (see DEFAULT_LLM_MODEL) is Haiku 4.5 — cheap and fast enough for most
+# questions; the larger models are there for when the EXPLAIN→evaluate→iterate
+# loop needs deeper reasoning. These are just the options surfaced in the
 # picker; any model the provider accepts will run.
 MODELS: dict[str, list[str]] = {
     "anthropic": ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5"],
+    # The GPT-5.6 family reasons by default, and /v1/chat/completions (see
+    # openai_provider) rejects function tools in that state — so they can't be
+    # offered until the provider moves to /v1/responses.
     "openai": ["gpt-5", "gpt-5-mini", "gpt-4.1"],
+    "google": [
+        "gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-2.5-pro",
+        "gemini-2.5-flash", "gemini-2.5-flash-lite",
+    ],
 }
 
 # Human-facing metadata for each provider (label + API-key placeholder), keyed
@@ -31,6 +39,7 @@ MODELS: dict[str, list[str]] = {
 PROVIDERS: dict[str, dict[str, str]] = {
     "anthropic": {"label": "Anthropic", "keyPlaceholder": "sk-ant-…"},
     "openai": {"label": "OpenAI", "keyPlaceholder": "sk-…"},
+    "google": {"label": "Google", "keyPlaceholder": "AIza…"},
 }
 
 
@@ -45,6 +54,8 @@ def provider_for_model(model: str) -> str:
         return "anthropic"
     if model.startswith(("gpt", "o1", "o3", "o4")):
         return "openai"
+    if model.startswith("gemini"):
+        return "google"
     return next(iter(MODELS))
 
 
@@ -113,6 +124,10 @@ def build_provider(
         from backend.agent.openai_provider import OpenAIProvider
 
         cls = OpenAIProvider
+    elif provider == "google":
+        from backend.agent.gemini_provider import GeminiProvider
+
+        cls = GeminiProvider
     else:
         raise ValueError(f"Unknown provider: {provider}")
 

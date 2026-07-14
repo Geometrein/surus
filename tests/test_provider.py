@@ -7,6 +7,7 @@ import pytest
 from backend.agent import provider as provider_mod
 from backend.agent.provider import MODELS, AgentEvent, build_provider, provider_for_model
 from backend.agent.anthropic_provider import AnthropicProvider
+from backend.agent.gemini_provider import GeminiProvider
 from backend.agent.openai_provider import OpenAIProvider
 
 
@@ -18,14 +19,17 @@ def _provider(model="claude-haiku-4-5") -> AnthropicProvider:
 def test_models_lists_provider_options():
     assert "claude-opus-4-8" in MODELS["anthropic"]
     assert "gpt-5" in MODELS["openai"]
+    assert "gemini-3.5-flash" in MODELS["google"]
 
 
 def test_provider_for_model_resolves_by_list_then_prefix():
     assert provider_for_model("claude-opus-4-8") == "anthropic"
     assert provider_for_model("gpt-5") == "openai"
+    assert provider_for_model("gemini-3.5-flash") == "google"
     # Unknown ids fall back to a known prefix.
     assert provider_for_model("gpt-4o-mini") == "openai"
     assert provider_for_model("claude-future") == "anthropic"
+    assert provider_for_model("gemini-9-ultra") == "google"
 
 
 def test_agent_event_defaults():
@@ -43,6 +47,11 @@ def test_build_provider_returns_anthropic():
 def test_build_provider_returns_openai():
     p = build_provider("openai", "sk-test", "gpt-5", pool=None)
     assert isinstance(p, OpenAIProvider)
+
+
+def test_build_provider_returns_gemini():
+    p = build_provider("google", "sk-test", "gemini-3.5-flash", pool=None)
+    assert isinstance(p, GeminiProvider)
 
 
 def test_build_provider_rejects_unknown():
