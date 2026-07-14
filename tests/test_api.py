@@ -39,11 +39,13 @@ def test_non_loopback_host_is_forbidden(client):
 def test_settings_reports_no_key_then_key(client):
     body = client.get("/settings").json()
     assert body["hasLlmKey"] is False
-    assert {p["id"] for p in body["providers"]} == {"anthropic", "openai"}
+    assert {p["id"] for p in body["providers"]} == {"anthropic", "openai", "google"}
     assert all(p["hasKey"] is False for p in body["providers"])
     assert "claude-opus-4-8" in body["models"]
     assert "gpt-5" in body["models"]
+    assert "gemini-3.5-flash" in body["models"]
     assert body["modelProviders"]["gpt-5"] == "openai"
+    assert body["modelProviders"]["gemini-3.5-flash"] == "google"
     assert body["defaultModel"]
 
     # Setting an OpenAI key flips only that provider's status.
@@ -53,7 +55,7 @@ def test_settings_reports_no_key_then_key(client):
     body = client.get("/settings").json()
     assert body["hasLlmKey"] is True
     providers = {p["id"]: p["hasKey"] for p in body["providers"]}
-    assert providers == {"anthropic": False, "openai": True}
+    assert providers == {"anthropic": False, "openai": True, "google": False}
 
 
 def test_agent_limits_default_roundtrip_and_clamp(client):

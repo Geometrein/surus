@@ -161,12 +161,25 @@ export function oneLine(text: string, max = 200): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
+const title = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 // "claude-opus-4-8" -> "Opus 4.8", "claude-haiku-4-5-20251001" -> "Haiku 4.5".
-// GPT ids keep their conventional casing: "gpt-5" -> "GPT-5", "gpt-4.1" -> "GPT-4.1".
+// GPT and Gemini ids keep their conventional casing, with any trailing tier or
+// codename spelled out: "gpt-4.1" -> "GPT-4.1", "gpt-5.6-sol" -> "GPT-5.6 Sol",
+// "gemini-3.1-pro-preview" -> "Gemini 3.1 Pro Preview".
 export function modelLabel(id: string): string {
-  if (/^(gpt|o\d)/i.test(id)) return id.replace(/^gpt/i, "GPT");
+  if (/^(gpt|o\d|gemini)/i.test(id)) {
+    const [family, ...rest] = id.split("-");
+    const version = /^\d/.test(rest[0] ?? "") ? rest.shift() : undefined;
+    const isGpt = /^gpt$/i.test(family);
+    const head = isGpt ? "GPT" : title(family);
+    // OpenAI hyphenates the version ("GPT-5"), Google spaces it ("Gemini 3.5").
+    const base = version ? `${head}${isGpt ? "-" : " "}${version}` : head;
+    const suffix = rest.map(title).join(" ");
+    return suffix ? `${base} ${suffix}` : base;
+  }
   const parts = id.replace(/^claude-/, "").split("-");
-  const name = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  const name = title(parts[0]);
   const nums = parts.slice(1).filter((p) => /^\d+$/.test(p) && p.length <= 2);
   return nums.length ? `${name} ${nums.join(".")}` : name;
 }
