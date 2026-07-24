@@ -17,6 +17,7 @@ def _provider(model="claude-haiku-4-5") -> AnthropicProvider:
 
 
 def test_models_lists_provider_options():
+    assert "claude-opus-5" in MODELS["anthropic"]
     assert "claude-opus-4-8" in MODELS["anthropic"]
     assert "gpt-5" in MODELS["openai"]
     assert "gemini-3.5-flash" in MODELS["google"]
@@ -61,6 +62,7 @@ def test_build_provider_rejects_unknown():
 
 def test_adaptive_thinking_disabled_only_for_haiku():
     assert _provider("claude-haiku-4-5")._supports_adaptive_thinking() is False
+    assert _provider("claude-opus-5")._supports_adaptive_thinking() is True
     assert _provider("claude-opus-4-8")._supports_adaptive_thinking() is True
     assert _provider("claude-sonnet-4-6")._supports_adaptive_thinking() is True
 

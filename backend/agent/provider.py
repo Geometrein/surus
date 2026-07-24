@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 # loop needs deeper reasoning. These are just the options surfaced in the
 # picker; any model the provider accepts will run.
 MODELS: dict[str, list[str]] = {
-    "anthropic": ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5"],
+    "anthropic": ["claude-fable-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5"],
     # The GPT-5.6 family reasons by default, and /v1/chat/completions (see
     # openai_provider) rejects function tools in that state — so they can't be
     # offered until the provider moves to /v1/responses.
