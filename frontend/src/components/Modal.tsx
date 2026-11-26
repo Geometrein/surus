@@ -22,10 +22,10 @@ export function Modal({ title, children, onClose, footer }: ModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-[#1f1f24] border border-[#2c2c33] rounded-lg p-5 shadow-xl w-80"
+        className="bg-raised border border-line rounded-lg p-5 shadow-xl w-80"
         onClick={(e) => e.stopPropagation()}
       >
-        {title && <p className="text-sm text-[#c8c8d0] mb-3">{title}</p>}
+        {title && <p className="text-sm text-body mb-3">{title}</p>}
         {children}
         {footer && <div className="flex justify-end gap-2 mt-4">{footer}</div>}
       </div>

@@ -57,7 +57,7 @@ export function formatCount(n: number): string {
 }
 
 export const LEVEL_COLORS: Record<string, string> = {
-  info:  "text-[#a0a0a8]",
+  info:  "text-soft",
   warn:  "text-amber-400",
   error: "text-red-400",
 };
@@ -71,9 +71,9 @@ export const SOURCE_LABELS: Record<LogSource, string> = {
 };
 
 export function sourceBadge(source: string): string {
-  if (source === "agent")  return "bg-[#3a2f55] text-[#c9a8ff]";
-  if (source === "system") return "bg-[#2a3330] text-[#86c5a8]";
-  return "bg-[#1e3550] text-[#8fb6e8]";
+  if (source === "agent")  return "bg-agent-bg-strong text-agent-strong";
+  if (source === "system") return "bg-system-bg text-key";
+  return "bg-accent-bg text-accent-text-strong";
 }
 
 export function sourceLabel(source: string): string {
@@ -99,12 +99,12 @@ export const ACTIVITY_LABELS: Record<ActivityKind, string> = {
 
 // Tag/chip colors per activity kind (background + text).
 export const ACTIVITY_BADGE: Record<ActivityKind, string> = {
-  sql:       "bg-[#16233a] text-[#8fb6e8]",
-  visualize: "bg-[#2a1e33] text-[#c9a8ff]",
-  schema:    "bg-[#13291f] text-[#86c5a8]",
-  saved:     "bg-[#2a2510] text-[#e8c86a]",
-  chat:      "bg-[#242433] text-[#a9b4e8]",
-  app:       "bg-[#232326] text-[#8a8a92]",
+  sql:       "bg-accent-bg-dim text-accent-text-strong",
+  visualize: "bg-agent-bg-soft text-agent-strong",
+  schema:    "bg-success-bg text-key",
+  saved:     "bg-warning-bg-soft text-warning",
+  chat:      "bg-chat-badge-bg text-chat-badge",
+  app:       "bg-raised-hover text-subtle",
 };
 
 // Map an agent tool name to its activity kind (for tool-call log entries).
@@ -118,7 +118,7 @@ export function toolActivityKind(tool?: string): ActivityKind {
 }
 
 export function levelColor(lvl: string): string {
-  return LEVEL_COLORS[lvl] ?? "text-[#a0a0a8]";
+  return LEVEL_COLORS[lvl] ?? "text-soft";
 }
 
 export function abbrevType(t: string): string {

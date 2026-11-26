@@ -56,9 +56,9 @@ describe("log source helpers", () => {
     expect(sourceLabel("user")).toBe("👤 user");
     expect(sourceLabel("anything-else")).toBe("👤 user");
 
-    expect(sourceBadge("agent")).toContain("text-[#c9a8ff]");
-    expect(sourceBadge("system")).toContain("text-[#86c5a8]");
-    expect(sourceBadge("user")).toContain("text-[#8fb6e8]");
+    expect(sourceBadge("agent")).toContain("text-agent-strong");
+    expect(sourceBadge("system")).toContain("text-key");
+    expect(sourceBadge("user")).toContain("text-accent-text-strong");
   });
 });
 
@@ -66,8 +66,8 @@ describe("levelColor", () => {
   it("colors known levels and defaults unknown to info", () => {
     expect(levelColor("warn")).toBe("text-amber-400");
     expect(levelColor("error")).toBe("text-red-400");
-    expect(levelColor("info")).toBe("text-[#a0a0a8]");
-    expect(levelColor("mystery")).toBe("text-[#a0a0a8]");
+    expect(levelColor("info")).toBe("text-soft");
+    expect(levelColor("mystery")).toBe("text-soft");
   });
 });
 

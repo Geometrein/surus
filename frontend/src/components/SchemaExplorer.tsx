@@ -67,24 +67,24 @@ export function SchemaExplorer({
         {schemaNames.length > 1 && (
           <div className="relative" ref={filterRef}>
             <button
-              className={`p-1 rounded hover:bg-[#2c2c33] flex items-center ${filterOpen || hiddenSchemas.size > 0 ? "text-[#3b6fb5]" : "text-[#8a8a92] hover:text-white"}`}
+              className={`p-1 rounded hover:bg-line flex items-center ${filterOpen || hiddenSchemas.size > 0 ? "text-accent" : "text-subtle hover:text-white"}`}
               title="Filter schemas"
               onClick={() => setFilterOpen((o) => !o)}
             >
               <Filter size={13} />
             </button>
             {filterOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-[#1f1f24] border border-[#2c2c33] rounded shadow-lg z-50 min-w-[160px]">
-                <div className="px-2 py-1.5 text-[10px] font-bold tracking-wide text-[#6a6a72] border-b border-[#2c2c33]">SCHEMAS</div>
+              <div className="absolute right-0 top-full mt-1 bg-raised border border-line rounded shadow-lg z-50 min-w-[160px]">
+                <div className="px-2 py-1.5 text-[10px] font-bold tracking-wide text-muted border-b border-line">SCHEMAS</div>
                 {schemaNames.map((name) => (
-                  <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#26262d] cursor-pointer">
+                  <label key={name} className="flex items-center gap-2 px-2 py-1.5 hover:bg-raised-hover cursor-pointer">
                     <input
                       type="checkbox"
                       checked={!hiddenSchemas.has(name)}
                       onChange={() => onToggleSchema(name)}
-                      className="accent-[#3b6fb5]"
+                      className="accent-accent"
                     />
-                    <span className="text-[12px] text-[#c8c8d0] truncate">{name}</span>
+                    <span className="text-[12px] text-body truncate">{name}</span>
                   </label>
                 ))}
               </div>
@@ -93,7 +93,7 @@ export function SchemaExplorer({
         )}
         {onRefresh && (
           <button
-            className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] disabled:opacity-40 flex items-center"
+            className="text-subtle hover:text-white p-1 rounded hover:bg-line disabled:opacity-40 flex items-center"
             title="Refresh schema"
             onClick={onRefresh}
             disabled={refreshing}

@@ -8,6 +8,7 @@ import { SidebarPanel } from "./SidebarPanel";
 import { SchemaExplorer } from "./SchemaExplorer";
 import { formatBytes, formatCount, compactType, fitText } from "../utils";
 import { previewTableSql } from "../lib/sql";
+import { color } from "../lib/theme";
 import { useActiveKind } from "../hooks/useActiveKind";
 
 // ---------------------------------------------------------------------------
@@ -265,49 +266,49 @@ export function SchemaDiagramPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1f1f24] border-b border-[#2c2c33] shrink-0">
-        <span className="text-xs text-[#8a8a92]">⌗ Schema Diagram</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-raised border-b border-line shrink-0">
+        <span className="text-xs text-subtle">⌗ Schema Diagram</span>
         {filtersActive && totalTables > 0 && (
-          <span className="text-[11px] text-[#6aa3e8]">
+          <span className="text-[11px] text-accent-text">
             {visibleNodes.length} / {totalTables} tables · {visibleEdges.length} relations
           </span>
         )}
         <div className="flex-1" />
         <button
-          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramShowColumns ? "bg-[#1e3550] text-[#6aa3e8]" : "hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white"}`}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramShowColumns ? "bg-accent-bg text-accent-text" : "hover:bg-hover text-subtle hover:text-white"}`}
           onClick={() => setDiagramShowColumns(!diagramShowColumns)}
           title="Show columns inside table nodes"
         >
           <Columns3 size={13} /> Columns
         </button>
         <button
-          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramOnlyRelated ? "bg-[#1e3550] text-[#6aa3e8]" : "hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white"}`}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramOnlyRelated ? "bg-accent-bg text-accent-text" : "hover:bg-hover text-subtle hover:text-white"}`}
           onClick={() => setDiagramOnlyRelated(!diagramOnlyRelated)}
           title="Only show tables that have relationships"
         >
           <Link2 size={13} /> Only related
         </button>
         <button
-          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramShowSizes ? "bg-[#1e3550] text-[#6aa3e8]" : "hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white"}`}
+          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${diagramShowSizes ? "bg-accent-bg text-accent-text" : "hover:bg-hover text-subtle hover:text-white"}`}
           onClick={() => setDiagramShowSizes(!diagramShowSizes)}
           title="Show on-disk table sizes (fetched on demand)"
         >
           <HardDrive size={13} className={sizesQuery.isFetching ? "animate-pulse" : ""} /> Sizes
         </button>
-        <span className="w-px h-4 bg-[#2c2c33] mx-0.5" />
-        <button className="text-xs px-2 py-1 rounded hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white flex items-center gap-1" onClick={() => zoom(1 / 1.1)} title="Zoom out">
+        <span className="w-px h-4 bg-line mx-0.5" />
+        <button className="text-xs px-2 py-1 rounded hover:bg-hover text-subtle hover:text-white flex items-center gap-1" onClick={() => zoom(1 / 1.1)} title="Zoom out">
           <ZoomOut size={13} />
         </button>
-        <span className="text-[11px] text-[#6a6a72] w-9 text-center tabular-nums">{Math.round(view.scale * 100)}%</span>
-        <button className="text-xs px-2 py-1 rounded hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white flex items-center gap-1" onClick={() => zoom(1.1)} title="Zoom in">
+        <span className="text-[11px] text-muted w-9 text-center tabular-nums">{Math.round(view.scale * 100)}%</span>
+        <button className="text-xs px-2 py-1 rounded hover:bg-hover text-subtle hover:text-white flex items-center gap-1" onClick={() => zoom(1.1)} title="Zoom in">
           <ZoomIn size={13} />
         </button>
-        <button className="text-xs px-2 py-1 rounded hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white flex items-center gap-1" onClick={resetLayout} title="Reset layout & zoom">
+        <button className="text-xs px-2 py-1 rounded hover:bg-hover text-subtle hover:text-white flex items-center gap-1" onClick={resetLayout} title="Reset layout & zoom">
           <Maximize2 size={13} /> Reset
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 bg-[#0e0e11] relative overflow-hidden">
+      <div className="flex-1 min-h-0 bg-deep relative overflow-hidden">
         {!activeConnectionId ? (
           <Centered>Not connected — select a connection to view its schema.</Centered>
         ) : graph.isLoading ? (
@@ -326,10 +327,10 @@ export function SchemaDiagramPage() {
           >
             <defs>
               <marker id="fk-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="#5a7fb5" />
+                <path d="M0,0 L10,5 L0,10 z" fill={color("accent-arrow")} />
               </marker>
               <marker id="fk-arrow-lit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                <path d="M0,0 L10,5 L0,10 z" fill="#8fb6e8" />
+                <path d="M0,0 L10,5 L0,10 z" fill={color("accent-text-strong")} />
               </marker>
             </defs>
             <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
@@ -342,7 +343,7 @@ export function SchemaDiagramPage() {
                 if (!a || !b) return null;
                 const lit = hovered != null && (fromKey === hovered || toKey === hovered);
                 const dim = (hovered != null && !lit) || (term !== "" && !lit);
-                const stroke = lit ? "#8fb6e8" : "#3a4a63";
+                const stroke = lit ? color("accent-text-strong") : color("diagram-edge");
                 const strokeWidth = lit ? 1.8 : 1;
                 const marker = `url(#${lit ? "fk-arrow-lit" : "fk-arrow"})`;
 
@@ -415,23 +416,23 @@ export function SchemaDiagramPage() {
                   >
                     <rect
                       width={b.w} height={b.h} rx={6}
-                      fill="#181820"
-                      stroke={term !== "" && matched ? "#3b6fb5" : "#2c2c3a"}
+                      fill={color("panel")}
+                      stroke={term !== "" && matched ? color("accent") : color("line")}
                       strokeWidth={term !== "" && matched ? 1.6 : 1}
                     />
-                    <rect width={b.w} height={HEADER_H} rx={6} fill="#22293a" />
-                    <rect y={HEADER_H - 6} width={b.w} height={6} fill="#22293a" />
-                    <text x={10} y={14} fontSize={12} fontWeight={600} fill="#cdd6e8">
+                    <rect width={b.w} height={HEADER_H} rx={6} fill={color("diagram-header")} />
+                    <rect y={HEADER_H - 6} width={b.w} height={6} fill={color("diagram-header")} />
+                    <text x={10} y={14} fontSize={12} fontWeight={600} fill={color("diagram-title")}>
                       {n.name.length > 26 ? n.name.slice(0, 25) + "…" : n.name}
                     </text>
-                    <text x={b.w - 8} y={14} fontSize={9} fill="#6a7488" textAnchor="end">
+                    <text x={b.w - 8} y={14} fontSize={9} fill={color("diagram-meta")} textAnchor="end">
                       {n.schema}
                     </text>
-                    <text x={10} y={28} fontSize={9} fill="#4a5a72">
+                    <text x={10} y={28} fontSize={9} fill={color("diagram-faint")}>
                       {formatCount(n.rowEstimate)} rows
                     </text>
                     {diagramShowSizes && sizeByKey[k] != null && (
-                      <text x={b.w - 8} y={28} fontSize={9} fill="#4a5a72" textAnchor="end">
+                      <text x={b.w - 8} y={28} fontSize={9} fill={color("diagram-faint")} textAnchor="end">
                         {formatBytes(sizeByKey[k])}
                       </text>
                     )}
@@ -447,20 +448,20 @@ export function SchemaDiagramPage() {
                           <g key={c.name}>
                             <title>{`${c.name}: ${c.type}`}</title>
                             {ci > 0 && (
-                              <line x1={0} x2={b.w} y1={HEADER_H + ci * ROW_H} y2={HEADER_H + ci * ROW_H} stroke="#2c2c3a" strokeWidth={0.5} />
+                              <line x1={0} x2={b.w} y1={HEADER_H + ci * ROW_H} y2={HEADER_H + ci * ROW_H} stroke={color("line")} strokeWidth={0.5} />
                             )}
                             {c.isFk && (
                               <g transform={`translate(12, ${HEADER_H + ci * ROW_H + 3}) scale(0.46)`}>
-                                <path d="M9 17H7A5 5 0 0 1 7 7h2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M15 7h2a5 5 0 1 1 0 10h-2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                                <line x1="11" x2="13" y1="12" y2="12" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" />
+                                <path d="M9 17H7A5 5 0 0 1 7 7h2" fill="none" stroke={color("key")} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M15 7h2a5 5 0 1 1 0 10h-2" fill="none" stroke={color("key")} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <line x1="11" x2="13" y1="12" y2="12" stroke={color("key")} strokeWidth="2.5" strokeLinecap="round" />
                               </g>
                             )}
                             <text
                               x={nameX}
                               y={HEADER_H + ci * ROW_H + 13}
                               fontSize={11}
-                              fill={c.isFk ? "#86c5a8" : "#8a8a98"}
+                              fill={c.isFk ? color("key") : color("subtle")}
                               fontFamily="ui-monospace, monospace"
                             >
                               {name}
@@ -469,7 +470,7 @@ export function SchemaDiagramPage() {
                               x={b.w - 6}
                               y={HEADER_H + ci * ROW_H + 13}
                               fontSize={10}
-                              fill="#4a5a72"
+                              fill={color("diagram-faint")}
                               fontFamily="ui-monospace, monospace"
                               textAnchor="end"
                             >
@@ -493,7 +494,7 @@ export function SchemaDiagramPage() {
 
 function Centered({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`absolute inset-0 flex items-center justify-center text-xs text-[#6a6a72] ${className}`}>
+    <div className={`absolute inset-0 flex items-center justify-center text-xs text-muted ${className}`}>
       {children}
     </div>
   );
@@ -557,14 +558,14 @@ export function SchemaDiagramSidebar() {
 // it never blocks panning or node dragging underneath.
 function DiagramLegend() {
   return (
-    <div className="absolute bottom-3 right-3 bg-[#161619]/90 backdrop-blur-sm border border-[#2c2c33] rounded-lg px-3 py-2 shadow-lg pointer-events-none">
-      <div className="space-y-1 text-[11px] text-[#8a8a92]">
-        <div className="flex items-center gap-2"><Link2 size={12} className="text-[#86c5a8] shrink-0" /> Foreign-key column</div>
+    <div className="absolute bottom-3 right-3 bg-app/90 backdrop-blur-sm border border-line rounded-lg px-3 py-2 shadow-lg pointer-events-none">
+      <div className="space-y-1 text-[11px] text-subtle">
+        <div className="flex items-center gap-2"><Link2 size={12} className="text-key shrink-0" /> Foreign-key column</div>
         <div className="flex items-center gap-2">
-          <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#5a7fb5" strokeWidth="1.5" /></svg>
+          <svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke={color("accent-arrow")} strokeWidth="1.5" /></svg>
           Relationship → referenced table
         </div>
-        <div className="flex items-center gap-1.5 pt-1 mt-0.5 border-t border-[#2c2c33] text-[#6a6a72]">
+        <div className="flex items-center gap-1.5 pt-1 mt-0.5 border-t border-line text-muted">
           <RefreshCw size={11} /> drag tables · scroll to zoom · double-click to preview
         </div>
       </div>

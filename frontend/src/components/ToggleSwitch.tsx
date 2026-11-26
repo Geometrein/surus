@@ -21,7 +21,7 @@ export function ToggleSwitch({
   const pill = (
     <span
       className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-        on ? "bg-emerald-500/80" : "bg-[#3a3a42]"
+        on ? "bg-emerald-500/80" : "bg-line-strong"
       }`}
     >
       <span
@@ -52,7 +52,7 @@ export function ToggleSwitch({
       onClick={onClick}
       disabled={busy}
       className={`w-full flex items-center justify-between px-2 py-1 rounded text-xs transition-colors ${
-        on ? "bg-[#1e3550] text-white" : "text-[#6a6a72] hover:bg-[#1d1d22] hover:text-[#a0a0a8]"
+        on ? "bg-accent-bg text-white" : "text-muted hover:bg-hover hover:text-soft"
       } disabled:opacity-50`}
     >
       <span>{label}</span>

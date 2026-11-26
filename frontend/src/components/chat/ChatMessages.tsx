@@ -11,12 +11,12 @@ import type { ChatController } from "./useChatController";
 import { AgentChart } from "./AgentChart";
 
 function Hint({ children }: { children: ReactNode }) {
-  return <div className="text-sm text-[#6a6a72]">{children}</div>;
+  return <div className="text-sm text-muted">{children}</div>;
 }
 
 function ThinkingIndicator({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-[#8a8a92]">
+    <div className="flex items-center gap-2 text-xs text-subtle">
       <span className="flex gap-1">
         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
         <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
@@ -44,7 +44,7 @@ function MsgActions({ align, text, onRetry, disabled }: {
       setTimeout(() => setCopied(false), 1200);
     } catch { /* clipboard blocked */ }
   }
-  const btn = "text-[#6a6a72] hover:text-[#c8c8d0] p-1 rounded hover:bg-[#2c2c33] transition-colors disabled:opacity-40 disabled:hover:bg-transparent";
+  const btn = "text-muted hover:text-body p-1 rounded hover:bg-line transition-colors disabled:opacity-40 disabled:hover:bg-transparent";
   return (
     <div className={`flex items-center gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${align === "right" ? "justify-end" : "justify-start"}`}>
       {text && (
@@ -80,7 +80,7 @@ export function ChatMessages({ chat, centered = false }: { chat: ChatController;
     a({ href, children, node: _node, ...props }: { href?: string; children?: ReactNode; node?: unknown }) {
       if (href === "#api-key")
         return (
-          <button type="button" className="text-[#6aa3e8] hover:underline" onClick={openKeySettings}>
+          <button type="button" className="text-accent-text hover:underline" onClick={openKeySettings}>
             {children}
           </button>
         );
@@ -105,7 +105,7 @@ export function ChatMessages({ chat, centered = false }: { chat: ChatController;
             return (
               <div key={i} className="group">
                 <div className="flex justify-end">
-                  <div className="max-w-[85%] bg-[#1e3550] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words">
+                  <div className="max-w-[85%] bg-accent-bg rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words">
                     {m.text}
                   </div>
                 </div>
@@ -128,19 +128,19 @@ export function ChatMessages({ chat, centered = false }: { chat: ChatController;
           return (
             <div key={i} className="group mr-2">
               {trail.map((st, j) => (
-                <div key={j} className="flex items-center gap-1 text-[11px] text-[#6a6a72] font-mono mb-1">
+                <div key={j} className="flex items-center gap-1 text-[11px] text-muted font-mono mb-1">
                   <Wrench size={11} className="shrink-0" />
                   {toolLabel(st.toolName)}
                   {st.toolInput?.sql ? `: ${String(st.toolInput.sql).slice(0, 70)}` : ""}
                 </div>
               ))}
               {m.text && (
-                <div className="bg-[#1b1b1f] border border-[#2c2c33] rounded-lg px-3 py-2 text-sm prose-chat">
+                <div className="bg-panel border border-line rounded-lg px-3 py-2 text-sm prose-chat">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{normalizeMd(m.text)}</ReactMarkdown>
                   {sqlBlocks.map((sql, k) => (
                     <button
                       key={k}
-                      className="mt-1 flex items-center gap-1 text-xs text-[#6aa3e8] hover:underline"
+                      className="mt-1 flex items-center gap-1 text-xs text-accent-text hover:underline"
                       onClick={() => openTab(multi ? `Agent query ${k + 1}` : "Agent query", sql, true)}
                     >
                       <ExternalLink size={11} /> {multi ? `Open query ${k + 1}` : "Open in editor"}
@@ -155,8 +155,8 @@ export function ChatMessages({ chat, centered = false }: { chat: ChatController;
                 ) : null;
               })}
               {submitSql && (
-                <div className="mt-1 bg-[#1b1b1f] border border-[#2c2c33] rounded-lg overflow-hidden">
-                  <pre className="px-3 py-2 text-xs font-mono text-[#c8c8d0] whitespace-pre-wrap break-words border-b border-[#2c2c33]">
+                <div className="mt-1 bg-panel border border-line rounded-lg overflow-hidden">
+                  <pre className="px-3 py-2 text-xs font-mono text-body whitespace-pre-wrap break-words border-b border-line">
                     {submitSql}
                   </pre>
                   {submitRationale && (
@@ -165,7 +165,7 @@ export function ChatMessages({ chat, centered = false }: { chat: ChatController;
                     </div>
                   )}
                   <button
-                    className="m-2 flex items-center gap-1 text-xs text-[#6aa3e8] hover:underline"
+                    className="m-2 flex items-center gap-1 text-xs text-accent-text hover:underline"
                     onClick={() => openTab("Agent query", submitSql, true)}
                   >
                     <ExternalLink size={11} /> Open in editor

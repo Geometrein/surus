@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  */
 export function SidebarPanel({ children }: { children: ReactNode }) {
   return (
-    <aside className="w-full h-full flex flex-col bg-[#131316] border-r border-[#2c2c33] min-h-0">
+    <aside className="w-full h-full flex flex-col bg-sunken border-r border-line min-h-0">
       {children}
     </aside>
   );
@@ -23,8 +23,8 @@ export function SidebarHeader({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex items-center px-2 h-9 shrink-0 border-b border-[#2c2c33]">
-      <span className="flex-1 text-[11px] font-bold tracking-wide text-[#8a8a92]">{label}</span>
+    <div className="flex items-center px-2 h-9 shrink-0 border-b border-line">
+      <span className="flex-1 text-[11px] font-bold tracking-wide text-subtle">{label}</span>
       {children}
     </div>
   );

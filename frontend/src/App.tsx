@@ -58,8 +58,8 @@ export function App() {
   }, [chatOpen, aiEnabled]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#161619] text-[#e2e2e8]">
-      <header className="h-12 shrink-0 flex items-center bg-[#1f1f24] border-b border-[#2c2c33]">
+    <div className="h-screen flex flex-col bg-app text-strong">
+      <header className="h-12 shrink-0 flex items-center bg-raised border-b border-line">
         <div className="w-10 shrink-0 flex items-center justify-center">
           <img src="/surus_logo.png" alt="Surus" className="h-7 w-7 rounded" />
         </div>
@@ -166,7 +166,7 @@ export function App() {
 function ActivityBar({ page }: { page: Page }) {
   const aiEnabled = useAiEnabled();
   return (
-    <nav className="w-10 shrink-0 flex flex-col items-center py-1 bg-[#1f1f24] border-r border-[#2c2c33]">
+    <nav className="w-10 shrink-0 flex flex-col items-center py-1 bg-raised border-r border-line">
       <ActivityTab active={page === "connections"} page="connections" title="Connections">
         <IconConnections />
       </ActivityTab>
@@ -201,14 +201,14 @@ function ActivityTab({ active, page, title, children }: {
     <button
       onClick={() => setPage(page)}
       className={`group relative w-full flex items-center justify-center h-11 transition-colors ${
-        active ? "text-white" : "text-[#6a6a72] hover:text-[#a0a0a8] hover:bg-[#26262d]"
+        active ? "text-white" : "text-muted hover:text-soft hover:bg-raised-hover"
       }`}
     >
       {active && (
-        <span className="absolute left-0 top-[10px] bottom-[10px] w-[2px] rounded-r bg-[#3b6fb5]" />
+        <span className="absolute left-0 top-[10px] bottom-[10px] w-[2px] rounded-r bg-accent" />
       )}
       {children}
-      <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded bg-[#2c2c33] border border-[#3a3a42] text-[#e2e2e8] text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity delay-300 z-50 shadow-lg">
+      <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded bg-line border border-line-strong text-strong text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity delay-300 z-50 shadow-lg">
         {title}
       </span>
     </button>
@@ -272,7 +272,7 @@ function StatusBar() {
   const active = conns.data?.find((c) => c.id === activeConnectionId) ?? null;
 
   return (
-    <footer className={`h-6 shrink-0 flex items-center text-[11px] select-none border-t border-[#2c2c33] transition-colors ${active ? "bg-emerald-900/40" : "bg-red-900/40"}`}>
+    <footer className={`h-6 shrink-0 flex items-center text-[11px] select-none border-t border-line transition-colors ${active ? "bg-emerald-900/40" : "bg-red-900/40"}`}>
       {active ? (
         <button
           className="flex-1 h-full flex items-center gap-2 px-3 hover:bg-emerald-900/30 text-emerald-400 transition-colors"
@@ -301,7 +301,7 @@ function StatusBar() {
           </button>
           <div className="flex-1" />
           {serverVersion && (
-            <span className="px-3 text-[#4a4a52] font-mono">{shortVersion(serverVersion)}</span>
+            <span className="px-3 text-faint font-mono">{shortVersion(serverVersion)}</span>
           )}
         </>
       )}
@@ -317,7 +317,7 @@ function HResize({ hidden = false }: { hidden?: boolean }) {
   return (
     <PanelResizeHandle
       disabled={hidden}
-      className={hidden ? "hidden" : "w-[3px] bg-[#2c2c33] hover:bg-[#3b6fb5] data-[resize-handle-state=drag]:bg-[#3b6fb5] transition-colors"}
+      className={hidden ? "hidden" : "w-[3px] bg-line hover:bg-accent data-[resize-handle-state=drag]:bg-accent transition-colors"}
     />
   );
 }
