@@ -107,8 +107,17 @@ def test_password_login_and_ssl_modes():
     assert client_kwargs(_profile(sslmode="disable"), "pw")["secure"] is False
     prefer = client_kwargs(_profile(sslmode="prefer"), "pw")
     assert prefer["password"] == "pw"
-    assert prefer["secure"] is True and prefer["verify"] is False
+    # prefer checks the server's certificate: the password must not reach an
+    # unchecked server.
+    assert prefer["secure"] is True and "verify" not in prefer
     assert "verify" not in client_kwargs(_profile(sslmode="verify-full"), "pw")
+    assert client_kwargs(_profile(sslmode="require"), "pw")["verify"] is False
+
+
+def test_read_timeout_follows_the_query_timeout():
+    assert "send_receive_timeout" not in client_kwargs(_profile(), None)
+    kw = client_kwargs(_profile(), None, statement_timeout_ms=1_200_000)
+    assert kw["send_receive_timeout"] == 1200 + ch.READ_TIMEOUT_MARGIN_S
 
 
 def test_empty_database_falls_back_to_default():
@@ -178,19 +187,21 @@ def test_explain_returns_text_plan():
     client = FakeClient({"EXPLAIN": [("Expression",), ("  ReadFromMergeTree",)]})
     plan = ClickHouseDialect().run_explain(_pool(client), "SELECT 1")
     assert plan == {"plan": "Expression\n  ReadFromMergeTree"}
-    assert client.calls[0][0] == "EXPLAIN indexes = 1 SELECT 1"
+    assert client.calls[0][0] == "EXPLAIN indexes = 1\nSELECT 1"
 
 
 def test_explain_analyze_reports_read_statistics():
     summary = {"read_rows": "1000", "read_bytes": "8000", "elapsed_ns": "2500000", "memory_usage": "4096"}
     client = FakeClient({"EXPLAIN": [("Expression",)], "count()": [(7,)]}, summary=summary)
-    plan = ClickHouseDialect().run_explain(_pool(client), "SELECT x FROM t WHERE y", analyze=True)
+    plan = ClickHouseDialect().run_explain(
+        _pool(client), "SELECT x FROM t WHERE y -- note\n;", analyze=True
+    )
     assert plan["execution"] == {
         "result_rows": 7, "read_rows": 1000, "read_bytes": 8000,
         "elapsed_ms": 2.5, "memory_usage_bytes": 4096,
     }
     count_sql, settings = client.calls[1]
-    assert count_sql == "SELECT count() FROM (SELECT x FROM t WHERE y)"
+    assert count_sql == "SELECT count() FROM (\nSELECT x FROM t WHERE y -- note\n)"
     assert settings["wait_end_of_query"] == 1
 
 
@@ -251,9 +262,64 @@ def test_prompt_names_the_connected_engine():
 
 def test_empty_select_still_names_its_columns():
     client = FakeClient({"DESCRIBE": [("user_id", "Int64"), ("email", "String")]}, columns=())
-    result = ClickHouseDialect().run_query(_pool(client), 'SELECT * FROM "analytics"."customers" LIMIT 10')
+    result = ClickHouseDialect().run_query(
+        _pool(client), 'SELECT * FROM "analytics"."customers" LIMIT 10', max_rows=5
+    )
     assert result.columns == ["user_id", "email"]
     assert result.rows == [] and result.notice is None
     describe_sql, settings = client.calls[1]
-    assert describe_sql == 'DESCRIBE (SELECT * FROM "analytics"."customers" LIMIT 10)'
-    assert "query_id" not in settings
+    assert describe_sql == 'DESCRIBE (\nSELECT * FROM "analytics"."customers" LIMIT 10\n)'
+    # Its own query id, and no row cap that could cut off columns.
+    assert not {"query_id", "max_result_rows", "result_overflow_mode"} & settings.keys()
+
+
+def test_row_limit_is_enforced_by_the_server():
+    client = FakeClient({"numbers": [(i,) for i in range(10)]})
+    ClickHouseDialect().run_query(_pool(client), "SELECT number FROM numbers(10)", max_rows=3)
+    settings = client.calls[0][1]
+    assert settings["max_result_rows"] == 4
+    assert settings["result_overflow_mode"] == "break"
+    ClickHouseDialect().run_query(_pool(client), "SELECT number FROM numbers(10)")
+    assert "max_result_rows" not in client.calls[1][1]
+
+
+@pytest.mark.parametrize("sql", [
+    "-- monthly totals\nSELECT 1",
+    "/* note */ SELECT 1",
+    "  -- a\n  -- b\n(SELECT 1)",
+])
+def test_leading_comments_do_not_turn_a_select_into_a_command(sql):
+    client = FakeClient({"SELECT": [(1,)]})
+    result = ClickHouseDialect().run_query(_pool(client), sql)
+    assert result.rows == [[1]] and result.notice is None
+
+
+def test_low_cardinality_nullable_columns_count_as_nullable():
+    client = FakeClient({
+        "system.tables": [("db", "t", "MergeTree", 0, 0, "", "")],
+        "system.columns": [("db", "t", "label", "LowCardinality(Nullable(String))", "", 0)],
+    })
+    (table,) = ClickHouseDialect().build_snapshot(_pool(client)).tables
+    assert table.columns[0].nullable is True
+
+
+def test_expired_certificate_during_a_query_is_named():
+    class Expired(FakeClient):
+        @contextmanager
+        def query_rows_stream(self, sql, settings=None):
+            raise OSError("SSL: sslv3 alert certificate expired")
+            yield
+
+    with pytest.raises(ConnectionError, match="certificate has expired"):
+        ClickHouseDialect().run_query(_pool(Expired()), "SELECT 1")
+
+
+def test_query_log_records_row_counts_from_the_driver():
+    before = querylog.get_since(0)
+    last = before[-1]["seq"] if before else 0
+    client = FakeClient()
+    client.query = lambda sql, parameters=None, settings=None: SimpleNamespace(
+        result_rows=[], summary={}, row_count=7
+    )
+    ch._rows(_pool(client), "SELECT 7")
+    assert querylog.get_since(last)[-1]["rowCount"] == 7

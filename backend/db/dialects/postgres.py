@@ -61,9 +61,10 @@ class PostgresDialect(Dialect):
             "sslmode": profile.sslmode,
             "application_name": "surus",
         }
-        if password:
-            kwargs["password"] = password
         certs = cert_files(profile)
+        # A certificate login sends no password, even one left in the keychain.
+        if password and not certs.cert:
+            kwargs["password"] = password
         for key, path in (
             ("sslcert", certs.cert), ("sslkey", certs.key), ("sslrootcert", certs.root_cert),
         ):

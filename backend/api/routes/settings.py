@@ -37,6 +37,8 @@ AGENT_MAX_TOKENS_KEY = "agent_max_tokens"
 DEFAULT_MODEL_KEY = "default_model"
 QUERY_TIMEOUT_KEY = "query_timeout_sec"
 PREVIEW_ROW_LIMIT_KEY = "preview_row_limit"
+# "0" turns off every feature that sends anything to an LLM; anything else is on.
+AI_ENABLED_KEY = "ai_enabled"
 
 # Bounds (values are clamped on write).
 MAX_CUSTOM_INSTRUCTIONS = 8_000
@@ -79,6 +81,11 @@ def get_query_timeout_sec(s: Session) -> int:
 
 def get_preview_row_limit(s: Session) -> int:
     return _get_int(s, PREVIEW_ROW_LIMIT_KEY, DEFAULT_PREVIEW_ROW_LIMIT)
+
+
+def get_ai_enabled(s: Session) -> bool:
+    row = s.get(Setting, AI_ENABLED_KEY)
+    return not (row and row.value == "0")
 
 
 def get_default_model(s: Session) -> str:
@@ -141,6 +148,10 @@ class PreviewRowLimitIn(BaseModel):
     previewRowLimit: int
 
 
+class AiEnabledIn(BaseModel):
+    aiEnabled: bool
+
+
 @router.get("")
 def get_settings(s: Session = Depends(get_session)) -> dict:
     providers = _provider_key_status()
@@ -160,6 +171,7 @@ def get_settings(s: Session = Depends(get_session)) -> dict:
         "agentMaxTokens": get_agent_max_tokens(s),
         "queryTimeoutSec": get_query_timeout_sec(s),
         "previewRowLimit": get_preview_row_limit(s),
+        "aiEnabled": get_ai_enabled(s),
     }
 
 
@@ -223,3 +235,14 @@ def set_preview_row_limit(
     limit = max(MIN_PREVIEW_ROW_LIMIT, min(body.previewRowLimit, MAX_PREVIEW_ROW_LIMIT))
     _set(s, PREVIEW_ROW_LIMIT_KEY, str(limit))
     return {"previewRowLimit": limit}
+
+
+@router.put("/ai-enabled")
+def set_ai_enabled(body: AiEnabledIn, s: Session = Depends(get_session)) -> dict:
+    _set(s, AI_ENABLED_KEY, "1" if body.aiEnabled else "0")
+    if not body.aiEnabled:
+        # The chat routes import this module, so import them only when needed.
+        from backend.api.routes.chat import stop_all_runs
+
+        stop_all_runs()
+    return {"aiEnabled": body.aiEnabled}

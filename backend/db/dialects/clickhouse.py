@@ -29,13 +29,16 @@ from backend.db.dialects.base import Dialect
 from backend.db.introspect import Column, Index, Table
 from backend.db.query import QueryResult, _jsonsafe
 from backend.db.snapshot import Snapshot
-from backend.db.statements import ensure_read_only_safe
+from backend.db.statements import _code_skeleton, ensure_read_only_safe
 
 if TYPE_CHECKING:
     from backend.db.connections import ConnectionProfile
     from backend.db.extensions import ExtensionPlugin
 
 CONNECT_TIMEOUT_S = 6
+# Extra time the HTTP read waits beyond the query's own time limit, so the
+# server's clear "timeout exceeded" error arrives before a network timeout.
+READ_TIMEOUT_MARGIN_S = 30
 
 # Statements that answer with rows. Anything else (DDL, INSERT, KILL, ...) runs
 # as a command, which reports no result set.
@@ -58,12 +61,15 @@ class ClickHousePool:
         self.client.close()
 
 
-def client_kwargs(profile: "ConnectionProfile", password: str | None) -> dict[str, Any]:
+def client_kwargs(
+    profile: "ConnectionProfile", password: str | None, statement_timeout_ms: int | None = None
+) -> dict[str, Any]:
     """Map a connection profile onto ``clickhouse_connect.get_client`` arguments.
 
-    ``sslmode`` keeps its Postgres meaning: ``disable`` is plain HTTP;
-    ``prefer`` and ``require`` encrypt without checking the server; the
-    ``verify-*`` modes, or a server certificate on the profile, check it.
+    ``disable`` is plain HTTP and ``require`` encrypts without checking the
+    server's certificate. Every other mode, ``prefer`` included, checks it:
+    HTTPS has no plain fallback for ``prefer`` to mean, and an unchecked server
+    would receive the password.
     """
     certs = cert_files(profile)
     secure = profile.sslmode != "disable"
@@ -77,6 +83,10 @@ def client_kwargs(profile: "ConnectionProfile", password: str | None) -> dict[st
         # A session serialises queries; the app runs several at once.
         "autogenerate_session_id": False,
     }
+    if statement_timeout_ms is not None:
+        kwargs["send_receive_timeout"] = (
+            math.ceil(statement_timeout_ms / 1000) + READ_TIMEOUT_MARGIN_S
+        )
     # The driver refuses a password together with a certificate.
     if certs.cert:
         kwargs["client_cert"] = certs.cert
@@ -86,7 +96,7 @@ def client_kwargs(profile: "ConnectionProfile", password: str | None) -> dict[st
         kwargs["password"] = password
     if certs.root_cert:
         kwargs["ca_cert"] = certs.root_cert
-    elif secure and not profile.sslmode.startswith("verify"):
+    elif secure and profile.sslmode == "require":
         kwargs["verify"] = False
     return kwargs
 
@@ -97,14 +107,24 @@ def _timeout_settings(statement_timeout_ms: int | None) -> dict[str, Any]:
     return {"max_execution_time": max(1, math.ceil(statement_timeout_ms / 1000))}
 
 
-def settings_without_id(settings: dict) -> dict:
-    """The same settings for a follow-up query, which needs its own query id."""
-    return {k: v for k, v in settings.items() if k != "query_id"}
+_PER_QUERY_SETTINGS = {"query_id", "max_result_rows", "result_overflow_mode"}
+
+
+def followup_settings(settings: dict) -> dict:
+    """The settings for a follow-up query: its own query id, no row cap."""
+    return {k: v for k, v in settings.items() if k not in _PER_QUERY_SETTINGS}
 
 
 def _first_keyword(sql: str) -> str:
-    stripped = sql.lstrip().lstrip("(").lstrip()
+    # Comments and strings are blanked first, so a leading comment is skipped.
+    stripped = _code_skeleton(sql).lstrip().lstrip("(").lstrip()
     return stripped.split(None, 1)[0].upper() if stripped else ""
+
+
+def _subquery(sql: str) -> str:
+    """``sql`` ready to wrap as a subquery: no trailing semicolon, and on its own
+    lines, so a trailing ``--`` comment cannot swallow the closing bracket."""
+    return "(\n" + sql.strip().rstrip(";").rstrip() + "\n)"
 
 
 def _logged(pool: ClickHousePool, sql: str, run):
@@ -114,11 +134,14 @@ def _logged(pool: ClickHousePool, sql: str, run):
     rows: int | None = None
     try:
         result = run()
-        rows = getattr(result, "rowcount", None)
+        rows = getattr(result, "rowcount", getattr(result, "row_count", None))
         return result
-    except Exception as exc:  # noqa: BLE001 - record then re-raise unchanged
+    except Exception as exc:  # noqa: BLE001 - record, then name an expired certificate
         error = str(exc)
-        raise
+        explained = explain_connect_error(exc)
+        if explained is exc:
+            raise
+        raise explained from exc
     finally:
         querylog.record(
             connection_id=pool.connection_id, pool=pool.kind, sql=sql,
@@ -156,10 +179,16 @@ class ClickHouseDialect(Dialect):
         scheme = "https" if kw["secure"] else "http"
         return f"{scheme}://{kw['username']}@{kw['host']}:{kw['port']}/{kw['database']}"
 
-    def _client(self, profile: "ConnectionProfile", settings: dict | None = None) -> Client:
+    def _client(
+        self,
+        profile: "ConnectionProfile",
+        settings: dict | None = None,
+        statement_timeout_ms: int | None = None,
+    ) -> Client:
         try:
             return clickhouse_connect.get_client(
-                **client_kwargs(profile, get_password(profile)), settings=settings or {}
+                **client_kwargs(profile, get_password(profile), statement_timeout_ms),
+                settings=settings or {},
             )
         except Exception as exc:  # noqa: BLE001 - name an expired certificate first
             raise explain_connect_error(exc) from exc
@@ -178,9 +207,11 @@ class ClickHouseDialect(Dialect):
         self, profile: "ConnectionProfile", statement_timeout_ms: int
     ) -> tuple[ClickHousePool, ClickHousePool, str]:
         timeout = _timeout_settings(statement_timeout_ms)
-        rw = ClickHousePool(self._client(profile, timeout), "rw", profile.id)
+        rw = ClickHousePool(self._client(profile, timeout, statement_timeout_ms), "rw", profile.id)
         try:
-            ro = ClickHousePool(self._client(profile, {"readonly": 2, **timeout}), "ro", profile.id)
+            ro = ClickHousePool(
+                self._client(profile, {"readonly": 2, **timeout}, statement_timeout_ms), "ro", profile.id
+            )
         except Exception:
             rw.close()
             raise
@@ -254,7 +285,7 @@ class ClickHouseDialect(Dialect):
             t = tables.get((db, tbl))
             if t is not None:
                 t.columns.append(Column(
-                    name=name, data_type=typ, nullable=typ.startswith("Nullable("),
+                    name=name, data_type=typ, nullable=typ.startswith(("Nullable(", "LowCardinality(Nullable(")),
                     default=default or None, is_pk=bool(in_pk),
                 ))
         for db, tbl, name, typ, expr in _rows(pool, f"""
@@ -300,9 +331,13 @@ class ClickHouseDialect(Dialect):
         if _first_keyword(sql) not in _ROW_STATEMENTS:
             pool.client.command(sql, settings=settings)
             return QueryResult([], [], 0, (time.perf_counter() - start) * 1000, notice="OK")
+        if max_rows is not None:
+            # Closing the stream early does not stop the query: the driver reads
+            # the rest of the response first. Have the server stop instead, one
+            # row past the limit so truncation still shows.
+            settings = {**settings, "max_result_rows": max_rows + 1, "result_overflow_mode": "break"}
         rows: list[list[Any]] = []
         truncated = False
-        # Leaving the stream early closes the response, which stops the query.
         with pool.client.query_rows_stream(sql, settings=settings) as stream:
             columns = list(stream.source.column_names)
             for row in stream:
@@ -313,7 +348,9 @@ class ClickHouseDialect(Dialect):
         if not columns and _first_keyword(sql) in ("SELECT", "WITH"):
             # An empty result carries no header, which would read as a statement
             # without a result set. DESCRIBE names the columns without running it.
-            described = pool.client.query(f"DESCRIBE ({sql})", settings=settings_without_id(settings))
+            described = pool.client.query(
+                f"DESCRIBE {_subquery(sql)}", settings=followup_settings(settings)
+            )
             columns = [str(r[0]) for r in described.result_rows]
         return QueryResult(columns, rows, len(rows), (time.perf_counter() - start) * 1000, truncated)
 
@@ -326,7 +363,7 @@ class ClickHouseDialect(Dialect):
     ) -> dict:
         ensure_read_only_safe(sql)
         settings = _timeout_settings(statement_timeout_ms)
-        explain_sql = f"EXPLAIN indexes = 1 {sql}"
+        explain_sql = f"EXPLAIN indexes = 1\n{sql.strip().rstrip(';')}"
         result = _logged(pool, explain_sql, lambda: pool.client.query(explain_sql, settings=settings))
         plan: dict[str, Any] = {"plan": "\n".join(str(r[0]) for r in result.result_rows)}
         if analyze:
@@ -334,7 +371,7 @@ class ClickHouseDialect(Dialect):
             # back, and wait for the end so the read statistics are complete.
             # Columns the count does not need may be skipped, so bytes read can
             # be lower than for the query itself; rows read are not affected.
-            count_sql = f"SELECT count() FROM ({sql})"
+            count_sql = f"SELECT count() FROM {_subquery(sql)}"
             run = _logged(pool, count_sql, lambda: pool.client.query(
                 count_sql, settings={"wait_end_of_query": 1, **settings}))
             summary = run.summary or {}

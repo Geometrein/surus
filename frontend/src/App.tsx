@@ -13,6 +13,7 @@ import { SchemaDiagramPage, SchemaDiagramSidebar } from "./components/SchemaDiag
 import { SettingsPage, SettingsSidebar } from "./components/SettingsPage";
 import { ChatPanel } from "./components/ChatPanel";
 import { AskPage } from "./components/AskPage";
+import { useAiEnabled } from "./hooks/useAiEnabled";
 
 function useQueryLogPoller() {
   const ingest = useStore((s) => s.ingestQueryLogs);
@@ -36,15 +37,25 @@ export function App() {
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
   const chatOpen = useStore((s) => s.chatOpen);
   const setChatOpen = useStore((s) => s.setChatOpen);
+  const setPage = useStore((s) => s.setPage);
+  const aiEnabled = useAiEnabled();
+
+  // Turning AI off while on the Ask page would leave an empty screen.
+  useEffect(() => {
+    if (!aiEnabled && page === "ask") setPage("editor");
+  }, [aiEnabled, page, setPage]);
 
   // Keep the panel in sync when chatOpen is toggled elsewhere (e.g. the
   // EditorResults toolbar). Imperative expand/collapse only — the panel's own
   // onCollapse/onExpand callbacks drive chatOpen the other direction, and
   // calling expand()/collapse() when already in that state is a no-op.
+  //
+  // With AI off the panel stays in the layout, collapsed to nothing: removing it
+  // would make the panel library rebuild every width from its defaults.
   useEffect(() => {
-    if (chatOpen) chatPanelRef.current?.expand();
+    if (aiEnabled && chatOpen) chatPanelRef.current?.expand();
     else chatPanelRef.current?.collapse();
-  }, [chatOpen]);
+  }, [chatOpen, aiEnabled]);
 
   return (
     <div className="h-screen flex flex-col bg-[#161619] text-[#e2e2e8]">
@@ -61,30 +72,34 @@ export function App() {
         {/* ── Editor ── always mounted so panel sizes survive page switches */}
         <div className={`flex-1 min-w-0 min-h-0 ${page === "editor" ? "flex" : "hidden"}`}>
           <PanelGroup direction="horizontal" className="flex-1 min-w-0 min-h-0">
-            <Panel defaultSize={22} minSize={14} maxSize={40}>
+            <Panel id="editor-sidebar" order={1} defaultSize={22} minSize={14} maxSize={40}>
               <Sidebar />
             </Panel>
             <HResize />
-            <Panel defaultSize={52} minSize={30} className="flex flex-col min-w-0">
+            <Panel id="editor-main" order={2} defaultSize={52} minSize={30} className="flex flex-col min-w-0">
               <EditorResults />
             </Panel>
-            <HResize />
+            <HResize hidden={!aiEnabled} />
             <Panel
+              id="editor-chat"
+              order={3}
               ref={chatPanelRef}
               defaultSize={26}
               minSize={16}
               maxSize={46}
               collapsible
-              onCollapse={() => setChatOpen(false)}
+              // Collapsing because AI was turned off is not the user closing the
+              // agent, so it must not change whether it reopens later.
+              onCollapse={() => aiEnabled && setChatOpen(false)}
               onExpand={() => setChatOpen(true)}
             >
-              <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />
+              {aiEnabled && <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />}
             </Panel>
           </PanelGroup>
         </div>
 
         {/* ── Ask ── sidebar = chat history, central = chat with the database */}
-        {page === "ask" && <AskPage />}
+        {page === "ask" && aiEnabled && <AskPage />}
 
         {/* ── Connections ── sidebar = list, central = stats */}
         {page === "connections" && (
@@ -149,6 +164,7 @@ export function App() {
 // ---------------------------------------------------------------------------
 
 function ActivityBar({ page }: { page: Page }) {
+  const aiEnabled = useAiEnabled();
   return (
     <nav className="w-10 shrink-0 flex flex-col items-center py-1 bg-[#1f1f24] border-r border-[#2c2c33]">
       <ActivityTab active={page === "connections"} page="connections" title="Connections">
@@ -160,9 +176,11 @@ function ActivityBar({ page }: { page: Page }) {
       <ActivityTab active={page === "editor"} page="editor" title="Editor">
         <IconEditor />
       </ActivityTab>
-      <ActivityTab active={page === "ask"} page="ask" title="Ask your data">
-        <MessageSquare size={20} strokeWidth={1.5} />
-      </ActivityTab>
+      {aiEnabled && (
+        <ActivityTab active={page === "ask"} page="ask" title="Ask your data">
+          <MessageSquare size={20} strokeWidth={1.5} />
+        </ActivityTab>
+      )}
       <div className="mt-auto w-full">
         <ActivityTab active={page === "logs"} page="logs" title="Logs">
           <IconLogs />
@@ -295,8 +313,11 @@ function StatusBar() {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function HResize() {
+function HResize({ hidden = false }: { hidden?: boolean }) {
   return (
-    <PanelResizeHandle className="w-[3px] bg-[#2c2c33] hover:bg-[#3b6fb5] data-[resize-handle-state=drag]:bg-[#3b6fb5] transition-colors" />
+    <PanelResizeHandle
+      disabled={hidden}
+      className={hidden ? "hidden" : "w-[3px] bg-[#2c2c33] hover:bg-[#3b6fb5] data-[resize-handle-state=drag]:bg-[#3b6fb5] transition-colors"}
+    />
   );
 }

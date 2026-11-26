@@ -86,7 +86,7 @@ def test_connection(body: ConnectionTestIn) -> dict:
         ssl_cert=body.ssl_cert, ssl_key=body.ssl_key, ssl_root_cert=body.ssl_root_cert,
     )
     password = body.password or None
-    if not password and body.id:
+    if not password and body.id and not body.ssl_cert:
         password = conn_secrets.get_password(profile)
     try:
         version = get_dialect(profile.kind).probe(profile, password)
@@ -116,6 +116,9 @@ def update_connection(
     row = s.get(ConnectionRow, connection_id)
     if row is None:
         raise HTTPException(404, "Connection not found")
+    if body.kind != row.kind:
+        # The open pools speak the old engine; the next connect opens new ones.
+        deps.disconnect(connection_id)
     row.name, row.kind, row.host, row.port = body.name, body.kind, body.host, body.port
     row.dbname, row.user, row.sslmode = body.dbname, body.user, body.sslmode
     row.ssl_cert, row.ssl_key, row.ssl_root_cert = body.ssl_cert, body.ssl_key, body.ssl_root_cert

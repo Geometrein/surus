@@ -172,6 +172,7 @@ export interface Settings {
   agentMaxTokens: number;      // max output tokens per model call
   queryTimeoutSec: number;     // editor/query pool timeout (applied on reconnect)
   previewRowLimit: number;     // max rows returned by editor queries
+  aiEnabled: boolean;          // false = plain SQL editor, nothing sent to an LLM
 }
 
 export interface ChatSessionT {
@@ -337,6 +338,11 @@ export const api = {
     req<{ queryTimeoutSec: number }>("/settings/query-timeout", {
       method: "PUT",
       body: JSON.stringify({ queryTimeoutSec }),
+    }),
+  setAiEnabled: (aiEnabled: boolean) =>
+    req<{ aiEnabled: boolean }>("/settings/ai-enabled", {
+      method: "PUT",
+      body: JSON.stringify({ aiEnabled }),
     }),
   setPreviewRowLimit: (previewRowLimit: number) =>
     req<{ previewRowLimit: number }>("/settings/preview-row-limit", {

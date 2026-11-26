@@ -202,14 +202,14 @@ export function ConnectionDialog({
               <label className={label}>Certificate file</label>
               <input
                 className={field}
-                placeholder="~/.postgresql/postgresql.crt"
+                placeholder="Path to the certificate, e.g. ~/certs/client.crt"
                 value={form.ssl_cert}
                 onChange={(e) => set("ssl_cert", e.target.value)}
               />
               <label className={label}>Key file</label>
               <input
                 className={field}
-                placeholder="~/.postgresql/postgresql.key"
+                placeholder="Path to its private key, e.g. ~/certs/client.key"
                 value={form.ssl_key}
                 onChange={(e) => set("ssl_key", e.target.value)}
               />

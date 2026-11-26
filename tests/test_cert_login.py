@@ -82,3 +82,42 @@ def test_certificate_connection_roundtrip_drops_stored_password(client, cert_dir
 
     listed = client.get("/connections").json()
     assert listed[0]["ssl_key"] == "~/client.key"
+
+
+def test_certificate_login_never_sends_a_password(cert_dir):
+    profile = _profile(ssl_cert="~/client.crt", ssl_key="~/client.key")
+    info = conninfo_to_dict(PostgresDialect().build_conninfo(profile, "left-in-keychain"))
+    assert "password" not in info
+
+
+def test_testing_a_certificate_login_ignores_the_stored_password(client, cert_dir, monkeypatch):
+    from backend.db.dialects import postgres
+
+    created = client.post("/connections", json={
+        "name": "Prod", "host": "db.example", "dbname": "app", "user": "me", "password": "pw",
+    }).json()
+    seen = {}
+
+    def probe(self, profile, password):
+        seen["password"] = password
+        return "PostgreSQL 17"
+
+    monkeypatch.setattr(postgres.PostgresDialect, "probe", probe)
+    client.post("/connections/test", json={
+        "id": created["id"], "name": "Prod", "host": "db.example", "dbname": "app", "user": "me",
+        "password": "", "ssl_cert": "~/client.crt", "ssl_key": "~/client.key",
+    })
+    assert seen["password"] is None
+
+
+def test_changing_the_engine_disconnects(client, monkeypatch):
+    from backend.api import deps
+
+    created = client.post("/connections", json={"name": "X", "host": "h"}).json()
+    disconnected = []
+    monkeypatch.setattr(deps, "disconnect", lambda cid: disconnected.append(cid))
+    body = {"name": "X", "host": "h", "port": 8443, "dbname": "default", "user": "me", "password": ""}
+    client.put(f"/connections/{created['id']}", json={**body, "kind": "postgres"})
+    assert disconnected == []
+    client.put(f"/connections/{created['id']}", json={**body, "kind": "clickhouse"})
+    assert disconnected == [created["id"]]

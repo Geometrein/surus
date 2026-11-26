@@ -66,14 +66,13 @@ TOOL_DEFS: list[dict] = [
     {
         "name": "inspect_schema",
         "description": (
-            "Get detailed columns, types, primary keys, foreign keys, and indexes "
-            "for one table. Call this when you need detail on a table that wasn't "
+            "Get detailed columns, types, keys and indexes for one table. Call this when you need detail on a table that wasn't "
             "fully described in the schema context."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "schema": {"type": "string", "description": "Schema name, e.g. 'public'."},
+                "schema": {"type": "string", "description": "Schema (or database) name, as listed in the schema context."},
                 "table": {"type": "string", "description": "Table name."},
             },
             "required": ["schema", "table"],

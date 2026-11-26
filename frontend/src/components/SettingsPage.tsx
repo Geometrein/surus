@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Info, SquareTerminal } from "lucide-react";
-import { api } from "../api/client";
+import { api, type Settings } from "../api/client";
 import { useStore } from "../store";
 import { browserTimezone } from "../utils";
 import { SidebarPanel, SidebarHeader } from "./SidebarPanel";
+import { ToggleSwitch } from "./ToggleSwitch";
 
 // Every IANA timezone the runtime knows, with a small fallback for older engines.
 const TIMEZONES: string[] = (() => {
@@ -143,34 +144,64 @@ export function SettingsPage() {
 // ---------------------------------------------------------------------------
 
 function AgentSettings() {
+  const qc = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
+  const aiEnabled = settings.data?.aiEnabled ?? true;
+  const [busy, setBusy] = useState(false);
 
+  async function toggleAi() {
+    setBusy(true);
+    try {
+      await api.setAiEnabled(!aiEnabled);
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Section title="AI features">
+        <Field
+          label="Use AI"
+          hint="Off turns Surus into a plain SQL editor: the agent panel, the Ask page and every AI button are hidden, and nothing is sent to a model. Saved chats and API keys are kept for when you turn it back on."
+        >
+          <ToggleSwitch on={aiEnabled} onClick={toggleAi} busy={busy} label={aiEnabled ? "On" : "Off"} />
+        </Field>
+      </Section>
+
+      {aiEnabled && <AgentDetails settings={settings.data} />}
+    </>
+  );
+}
+
+function AgentDetails({ settings }: { settings: Settings | undefined }) {
   return (
     <>
       <Section title="Providers">
         {/* One card per provider — key stored per provider in the keychain. */}
-        {(settings.data?.providers ?? []).map((p) => (
+        {(settings?.providers ?? []).map((p) => (
           <ProviderCard key={p.id} providerId={p.id} name={p.label} hasKey={p.hasKey} keyPlaceholder={p.keyPlaceholder} />
         ))}
       </Section>
 
       <Section title="Model">
-        <DefaultModelField models={settings.data?.models ?? []} defaultModel={settings.data?.defaultModel ?? ""} />
+        <DefaultModelField models={settings?.models ?? []} defaultModel={settings?.defaultModel ?? ""} />
       </Section>
 
       <CollapsibleSection title="System prompt">
         <SystemPromptField
-          systemPrompt={settings.data?.systemPrompt ?? ""}
-          savedInstructions={settings.data?.customInstructions ?? ""}
+          systemPrompt={settings?.systemPrompt ?? ""}
+          savedInstructions={settings?.customInstructions ?? ""}
         />
       </CollapsibleSection>
 
       <Section title="Behavior">
-        <AgentTimeoutField timeoutSec={settings.data?.agentTimeoutSec ?? 30} />
+        <AgentTimeoutField timeoutSec={settings?.agentTimeoutSec ?? 30} />
         <NumberSettingField
           label="Max agent steps"
           hint="How many tool-use round-trips the agent may take before it stops — each step is one model call plus a query. Higher lets it work through complex, multi-table questions; lower caps latency and token spend. A run that hits the ceiling stops with a note and keeps what it found. Default 12."
-          value={settings.data?.agentMaxSteps ?? 12}
+          value={settings?.agentMaxSteps ?? 12}
           min={2}
           max={50}
           onSave={api.setAgentMaxSteps}
@@ -178,7 +209,7 @@ function AgentSettings() {
         <NumberSettingField
           label="Max response tokens"
           hint="Upper bound on tokens the model may generate per call — its reasoning plus the answer. Raise it if replies get cut off on large results; lower it to rein in cost and latency. This caps length, it doesn't reserve it. Default 16,000."
-          value={settings.data?.agentMaxTokens ?? 16000}
+          value={settings?.agentMaxTokens ?? 16000}
           min={1000}
           max={64000}
           onSave={api.setAgentMaxTokens}
@@ -561,8 +592,8 @@ function AboutSettings() {
       </Field>
       <Field label="Description">
         <p className="text-sm text-[#c8c8d0] leading-relaxed">
-          Agentic PostgreSQL client that prioritizes query performance and data
-          safety.
+          SQL client with an optional agentic layer that prioritizes query
+          performance and data safety.
         </p>
       </Field>
       <Field label="Author">

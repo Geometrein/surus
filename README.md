@@ -4,7 +4,7 @@
 
 <h1 align="center">Surus</h1>
 
-<p align="center"><strong>Agentic Postgres companion — with the right guardrails to safely point LLMs at your prod DB.</strong></p>
+<p align="center"><strong>SQL client with an optional agentic layer that prioritizes query performance and data safety.</strong></p>
 
 <p align="center">
   <a href="#features">Features</a> ·
@@ -20,7 +20,7 @@
 
 ## Design
 
-Surus is a Postgres companion client with a built-in agent.
+Surus is a SQL client with an optional agentic layer that prioritizes query performance and data safety.
 The design philosophy is built around 3 core principles.
 
 **1. Tight Text-to-SQL Loop.**

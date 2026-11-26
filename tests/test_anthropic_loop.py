@@ -172,3 +172,5 @@ def test_refusal_is_reported_instead_of_an_empty_answer(monkeypatch):
     assert [(e.kind, e.text) for e in events if e.kind in ("text", "error", "done")] == [
         ("error", "The model declined this request."),
     ]
+    # The refused turn is left out, so the next request is still valid.
+    assert all(m["role"] != "assistant" for m in p.messages)

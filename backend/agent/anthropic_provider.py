@@ -231,6 +231,11 @@ class AnthropicProvider:
             if self._supports_adaptive_thinking():
                 kwargs["thinking"] = {"type": "adaptive"}
             response = self.client.messages.create(**kwargs)
+            if response.stop_reason == "refusal":
+                # Not kept in the history: a refusal before any output is an
+                # empty turn, which the API rejects on every later request.
+                yield AgentEvent("error", text="The model declined this request.")
+                return
             # Preserve full content (incl. thinking/tool_use) for the next turn.
             self.messages.append({"role": "assistant", "content": response.content})
 
@@ -238,9 +243,6 @@ class AnthropicProvider:
                 if block.type == "text" and block.text.strip():
                     yield AgentEvent("text", text=block.text)
 
-            if response.stop_reason == "refusal":
-                yield AgentEvent("error", text="The model declined this request.")
-                return
             if response.stop_reason != "tool_use":
                 yield AgentEvent("done")
                 return

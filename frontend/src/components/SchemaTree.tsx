@@ -26,16 +26,29 @@ const KIND_BADGE: Record<string, string> = { view: "view", matview: "mat" };
 // tint the type text by category (text / number / temporal / boolean / json /
 // uuid-binary / geometry) rather than giving every dtype its own icon — a
 // low-noise, fast-scannable cue that leaves the key/relationship marker intact.
+// ClickHouse wraps types in modifiers that don't change what kind of value the
+// column holds: Nullable(T), LowCardinality(T), SimpleAggregateFunction(f, T).
+function unwrapType(type: string): string {
+  let t = type.trim();
+  for (;;) {
+    const m =
+      t.match(/^(?:Nullable|LowCardinality)\((.*)\)$/i) ??
+      t.match(/^SimpleAggregateFunction\(\w+,\s*(.*)\)$/i);
+    if (!m) return t;
+    t = m[1].trim();
+  }
+}
+
 function typeColor(type: string): string {
-  const t = type.toLowerCase().replace(/\(.*\)/, "").trim();
-  if (t.endsWith("[]") || /^(json|jsonb|xml|hstore)/.test(t)) return "#d08a5a";     // collections / json — orange
+  const t = unwrapType(type).toLowerCase().replace(/\(.*\)/, "").trim();
+  if (t.endsWith("[]") || /^(json|jsonb|xml|hstore|array|map|tuple|nested|object)/.test(t)) return "#d08a5a"; // collections / json — orange
   if (/(geometry|geography)/.test(t)) return "#c97fb0";                              // postgis — pink
   if (/^bool/.test(t)) return "#b088d0";                                             // boolean — violet
   if (/^(date|time|timestamp|interval)/.test(t)) return "#d0a355";                   // temporal — amber
-  if (/^(smallint|integer|bigint|int\d?|serial|bigserial|smallserial|decimal|numeric|real|double|float\d?|money)/.test(t))
+  if (/^(smallint|integer|bigint|u?int\d*|serial|bigserial|smallserial|decimal|numeric|real|double|float\d*|money)/.test(t))
     return "#5fb0c9";                                                                // number — cyan
-  if (/^(text|varchar|char|character|citext|name|bpchar)/.test(t)) return "#8bbf6a"; // text — green
-  if (/^(uuid|bytea|inet|cidr|macaddr|bit)/.test(t)) return "#8a93b0";               // uuid / binary / network — slate
+  if (/^(text|varchar|char|character|citext|name|bpchar|string|fixedstring|enum)/.test(t)) return "#8bbf6a"; // text — green
+  if (/^(uuid|bytea|inet|cidr|macaddr|bit|ipv4|ipv6)/.test(t)) return "#8a93b0";     // uuid / binary / network — slate
   return "#6a6a72";                                                                  // other — grey
 }
 

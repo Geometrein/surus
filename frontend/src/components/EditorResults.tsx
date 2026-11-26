@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Save, Check, Play, SquareIcon, BugPlay, Download, AlignJustify, LayoutGrid, BotMessageSquare, ChartSpline, ArrowDownToLine, Lock, PenLine, TriangleAlert } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import CodeMirror from "@uiw/react-codemirror";
-import { sql, PostgreSQL } from "@codemirror/lang-sql";
+import { sql } from "@codemirror/lang-sql";
 import { keymap, EditorView } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { AgGridReact } from "ag-grid-react";
@@ -10,6 +10,9 @@ import { themeQuartz, type ColDef } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type QueryResult, type TableDetail } from "../api/client";
 import { useStore, DEFAULT_TAB_ID } from "../store";
+import { useAiEnabled } from "../hooks/useAiEnabled";
+import { useActiveConnection } from "../hooks/useActiveKind";
+import { defaultSchema, editorDialect } from "../lib/sql";
 import { ChartView } from "./ChartView";
 import { Modal } from "./Modal";
 import { SCHEMA_STALE_MS, abbrevType } from "../utils";
@@ -174,6 +177,10 @@ export function EditorResults() {
   const qc = useQueryClient();
   const { activeConnectionId, tabs, activeTabId, setTabSql, setActiveTab, openTab, updateTab, closeTab, runSignal, log, chatOpen, setChatOpen, setPendingChatMessage, writeMode, setWriteMode } =
     useStore();
+  const aiEnabled = useAiEnabled();
+  const activeConnection = useActiveConnection();
+  const homeSchema = defaultSchema(activeConnection);
+  const activeKind = activeConnection?.kind ?? "postgres";
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const tabSql = activeTab.sql;
 
@@ -240,7 +247,9 @@ export function EditorResults() {
   const status = statuses[activeTabId] ?? "";
   const error = errors[activeTabId] ?? null;
   const running = !!runningTabs[activeTabId];
-  const isExplainResult = result !== null && result.columns.length === 1 && result.columns[0] === "QUERY PLAN";
+  // Postgres names the plan column "QUERY PLAN", ClickHouse "explain".
+  const isExplainResult =
+    result !== null && result.columns.length === 1 && ["QUERY PLAN", "explain"].includes(result.columns[0]);
 
   const [elapsedMs, setElapsedMs] = useState(0);
   useEffect(() => {
@@ -333,9 +342,9 @@ export function EditorResults() {
     if (!schemaColumns.data) return {};
     const flat: Record<string, string[]> = {};
     const seen = new Set<string>();
-    // Sort so "public" schema is processed first — it wins unqualified name conflicts.
+    // The default schema goes first, so it wins unqualified name conflicts.
     const sorted = Object.entries(schemaColumns.data).sort(([a], [b]) =>
-      a === "public" ? -1 : b === "public" ? 1 : a.localeCompare(b)
+      a === homeSchema ? -1 : b === homeSchema ? 1 : a.localeCompare(b)
     );
     for (const [schema, tables] of sorted) {
       for (const [table, cols] of Object.entries(tables)) {
@@ -347,17 +356,17 @@ export function EditorResults() {
       }
     }
     return flat;
-  }, [schemaColumns.data]);
+  }, [schemaColumns.data, homeSchema]);
 
   const extensions = useMemo(
     () => [
-      sql({ dialect: PostgreSQL, schema: flatSchema }),
+      sql({ dialect: editorDialect(activeKind), schema: flatSchema }),
       keymap.of([
         { key: "Mod-Enter", run: () => (run(), true) },
         { key: "Ctrl-Enter", run: () => (run(), true) },
       ]),
     ],
-    [run, flatSchema]
+    [run, flatSchema, activeKind]
   );
 
   const exportCsv = useCallback(() => {
@@ -551,13 +560,15 @@ export function EditorResults() {
               <Play size={13} /> {writeMode ? "Run write" : "Run"}
             </button>
           )}
-          <button
-            className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${chatOpen ? "bg-[#2a1a3e] text-[#c9a3e0]" : "text-[#a98fc0] hover:bg-[#26262d] hover:text-[#c9a3e0]"}`}
-            onClick={() => setChatOpen(!chatOpen)}
-            title={chatOpen ? "Close agent" : "Open agent"}
-          >
-            <BotMessageSquare size={13} /> Agent
-          </button>
+          {aiEnabled && (
+            <button
+              className={`px-2.5 py-1 rounded text-xs flex items-center gap-1.5 transition-colors ${chatOpen ? "bg-[#2a1a3e] text-[#c9a3e0]" : "text-[#a98fc0] hover:bg-[#26262d] hover:text-[#c9a3e0]"}`}
+              onClick={() => setChatOpen(!chatOpen)}
+              title={chatOpen ? "Close agent" : "Open agent"}
+            >
+              <BotMessageSquare size={13} /> Agent
+            </button>
+          )}
         </div>
         {/* Unmistakable banner so it's never a surprise that a Run can mutate data. */}
         {writeMode && (
@@ -655,7 +666,7 @@ export function EditorResults() {
                   <ArrowDownToLine size={13} /> Load all rows
                 </button>
               )}
-              {error && error !== NOT_CONNECTED ? (
+              {!aiEnabled && error ? null : error && error !== NOT_CONNECTED ? (
                 <button
                   className="px-2 py-1.5 text-xs text-[#ae84cb] hover:bg-[#2a1a3e] border-l border-[#2c2c33] flex items-center gap-1.5 transition-colors"
                   onClick={debugWithAI}
@@ -663,7 +674,7 @@ export function EditorResults() {
                 >
                   <BugPlay size={13} /> Debug with AI
                 </button>
-              ) : isExplainResult ? (
+              ) : isExplainResult && aiEnabled ? (
                 <button
                   className="px-2 py-1.5 text-xs text-[#ae84cb] hover:bg-[#2a1a3e] border-l border-[#2c2c33] flex items-center gap-1.5 transition-colors"
                   onClick={explainWithAI}
