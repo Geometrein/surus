@@ -36,6 +36,9 @@ export interface Connection {
   dbname: string;
   user: string;
   sslmode: string;
+  ssl_cert: string;
+  ssl_key: string;
+  ssl_root_cert: string;
   color: string;
   connected: boolean;
 }
@@ -48,6 +51,9 @@ export interface ConnectionInput {
   user: string;
   password: string;
   sslmode: string;
+  ssl_cert: string;
+  ssl_key: string;
+  ssl_root_cert: string;
   color: string;
 }
 

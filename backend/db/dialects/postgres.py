@@ -16,7 +16,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from backend.db import introspect, query, querylog, snapshot
-from backend.db.connections import get_password
+from backend.db.connections import cert_files, explain_connect_error, get_password
 from backend.db.dialects.base import Dialect
 from backend.db.extensions import detect as detect_extension_plugins
 
@@ -62,16 +62,25 @@ class PostgresDialect(Dialect):
         }
         if password:
             kwargs["password"] = password
+        certs = cert_files(profile)
+        for key, path in (
+            ("sslcert", certs.cert), ("sslkey", certs.key), ("sslrootcert", certs.root_cert),
+        ):
+            if path:
+                kwargs[key] = path
         return make_conninfo(**kwargs)
 
     def probe(self, profile: "ConnectionProfile", password: str | None) -> str:
         conninfo = make_conninfo(
             self.build_conninfo(profile, password), connect_timeout=CONNECT_TIMEOUT_S
         )
-        with psycopg.connect(conninfo) as probe:
-            with probe.cursor() as cur:
-                cur.execute("SELECT version()")
-                return cur.fetchone()[0]
+        try:
+            with psycopg.connect(conninfo) as probe:
+                with probe.cursor() as cur:
+                    cur.execute("SELECT version()")
+                    return cur.fetchone()[0]
+        except psycopg.OperationalError as exc:
+            raise explain_connect_error(exc) from exc
 
     def create_pools(
         self, profile: "ConnectionProfile", statement_timeout_ms: int

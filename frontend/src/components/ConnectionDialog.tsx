@@ -11,6 +11,11 @@ const label = "text-xs text-[#8a8a92] mt-3 block";
 const COLORS = ["#c2554f", "#c47f3d", "#b9a23f", "#4f9d63", "#3a9a92", "#4a7fc5", "#8266c4", "#b85e94"];
 
 type TestState = { ok: boolean; msg: string } | null;
+type Auth = "password" | "certificate";
+
+// With a client certificate the connection is always encrypted, so "prefer"
+// and "disable" are not offered.
+const CERT_SSL_MODES = ["require", "verify-ca", "verify-full"];
 
 export function ConnectionDialog({
   edit,
@@ -29,8 +34,12 @@ export function ConnectionDialog({
     user: edit?.user ?? "postgres",
     password: "",
     sslmode: edit?.sslmode ?? "prefer",
+    ssl_cert: edit?.ssl_cert ?? "",
+    ssl_key: edit?.ssl_key ?? "",
+    ssl_root_cert: edit?.ssl_root_cert ?? "",
     color: edit?.color ?? "",
   });
+  const [auth, setAuth] = useState<Auth>(edit?.ssl_cert ? "certificate" : "password");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<TestState>(null);
@@ -39,12 +48,20 @@ export function ConnectionDialog({
   const set = (k: keyof ConnectionInput, v: string | number) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  // Only the fields of the chosen login method are sent, so switching back to
+  // a password clears the certificate paths instead of keeping them silently.
+  function payload(): ConnectionInput {
+    if (auth === "password") return { ...form, ssl_cert: "", ssl_key: "", ssl_root_cert: "" };
+    const sslmode = CERT_SSL_MODES.includes(form.sslmode) ? form.sslmode : "require";
+    return { ...form, password: "", sslmode };
+  }
+
   async function runTest() {
     setTesting(true);
     setTest(null);
     setErr(null);
     try {
-      const res = await api.testConnection(form, edit?.id);
+      const res = await api.testConnection(payload(), edit?.id);
       setTest({ ok: true, msg: shortVersion(res.version) });
     } catch (e) {
       setTest({ ok: false, msg: (e as Error).message });
@@ -57,8 +74,8 @@ export function ConnectionDialog({
     setBusy(true);
     setErr(null);
     try {
-      if (edit) await api.updateConnection(edit.id, form);
-      else await api.createConnection(form);
+      if (edit) await api.updateConnection(edit.id, payload());
+      else await api.createConnection(payload());
       onSaved();
     } catch (e) {
       setErr((e as Error).message);
@@ -99,14 +116,72 @@ export function ConnectionDialog({
           <input className={field} value={form.dbname} onChange={(e) => set("dbname", e.target.value)} />
           <label className={label}>User</label>
           <input className={field} value={form.user} onChange={(e) => set("user", e.target.value)} />
-          <label className={label}>Password</label>
-          <input
-            className={field}
-            type="password"
-            placeholder={edit ? "(unchanged)" : ""}
-            value={form.password}
-            onChange={(e) => set("password", e.target.value)}
-          />
+          <label className={label}>Login with</label>
+          <div className="flex gap-1 mt-1">
+            {(["password", "certificate"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAuth(a)}
+                className={`flex-1 px-2 py-1 rounded text-[13px] border ${
+                  auth === a
+                    ? "border-[#4a6da8] bg-[#24304a] text-white"
+                    : "border-[#3a3a42] text-[#a0a0a8] hover:bg-[#1d1d22]"
+                }`}
+              >
+                {a === "password" ? "Password" : "Client certificate"}
+              </button>
+            ))}
+          </div>
+
+          {auth === "password" ? (
+            <>
+              <label className={label}>Password</label>
+              <input
+                className={field}
+                type="password"
+                placeholder={edit ? "(unchanged)" : ""}
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+              />
+            </>
+          ) : (
+            <>
+              <label className={label}>Certificate file</label>
+              <input
+                className={field}
+                placeholder="~/.postgresql/postgresql.crt"
+                value={form.ssl_cert}
+                onChange={(e) => set("ssl_cert", e.target.value)}
+              />
+              <label className={label}>Key file</label>
+              <input
+                className={field}
+                placeholder="~/.postgresql/postgresql.key"
+                value={form.ssl_key}
+                onChange={(e) => set("ssl_key", e.target.value)}
+              />
+              <label className={label}>Server certificate or CA (optional)</label>
+              <input
+                className={field}
+                placeholder="Checks the server is the one you expect"
+                value={form.ssl_root_cert}
+                onChange={(e) => set("ssl_root_cert", e.target.value)}
+              />
+              <label className={label}>SSL mode</label>
+              <select
+                className={field}
+                value={CERT_SSL_MODES.includes(form.sslmode) ? form.sslmode : "require"}
+                onChange={(e) => set("sslmode", e.target.value)}
+              >
+                {CERT_SSL_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           {err && <div className="text-red-400 text-xs mt-3">{err}</div>}
           {test && (

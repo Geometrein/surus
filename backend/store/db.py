@@ -34,6 +34,9 @@ def _migrate() -> None:
         ("connections", "color", "VARCHAR DEFAULT '' NOT NULL"),
         ("connections", "kind", "VARCHAR DEFAULT 'postgres' NOT NULL"),
         ("chat_sessions", "mode", "VARCHAR DEFAULT 'sql' NOT NULL"),
+        ("connections", "ssl_cert", "VARCHAR DEFAULT '' NOT NULL"),
+        ("connections", "ssl_key", "VARCHAR DEFAULT '' NOT NULL"),
+        ("connections", "ssl_root_cert", "VARCHAR DEFAULT '' NOT NULL"),
     ]
     inspector = inspect(_engine)
     with _engine.begin() as conn:

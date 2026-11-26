@@ -105,5 +105,6 @@ Everything is stored locally:
 
 - **Connections, saved queries, chat history, settings** live in a single SQLite file: `~/Library/Application Support/Surus/surus.db` on macOS, `%LOCALAPPDATA%\Surus` on Windows, `~/.local/share/Surus` on Linux.
 - **Secrets** — DB passwords and LLM API keys — live in the OS keychain under the service name `surus`.
+- **Client certificates** — a connection can log in with a certificate and key instead of a password. Surus stores only their file paths, so a short-lived certificate renewed in place keeps working without editing the connection.
 
 ---
