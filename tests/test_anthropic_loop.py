@@ -164,3 +164,11 @@ def test_api_exception_becomes_error_event(monkeypatch):
     events = list(p.send("hi"))
     assert events[-1].kind == "error"
     assert "network down" in events[-1].text
+
+
+def test_refusal_is_reported_instead_of_an_empty_answer(monkeypatch):
+    p = _provider_with([_response([], "refusal")], monkeypatch)
+    events = list(p.send("hi"))
+    assert [(e.kind, e.text) for e in events if e.kind in ("text", "error", "done")] == [
+        ("error", "The model declined this request."),
+    ]

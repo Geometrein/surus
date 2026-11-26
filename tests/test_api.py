@@ -41,11 +41,11 @@ def test_settings_reports_no_key_then_key(client):
     assert body["hasLlmKey"] is False
     assert {p["id"] for p in body["providers"]} == {"anthropic", "openai", "google"}
     assert all(p["hasKey"] is False for p in body["providers"])
-    assert "claude-opus-4-8" in body["models"]
+    assert "claude-opus-5-5" in body["models"]
     assert "gpt-5" in body["models"]
-    assert "gemini-3.5-flash" in body["models"]
+    assert "gemini-4-hydrogen" in body["models"]
     assert body["modelProviders"]["gpt-5"] == "openai"
-    assert body["modelProviders"]["gemini-3.5-flash"] == "google"
+    assert body["modelProviders"]["gemini-4-hydrogen"] == "google"
     assert body["defaultModel"]
 
     # Setting an OpenAI key flips only that provider's status.

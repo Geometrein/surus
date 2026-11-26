@@ -212,9 +212,9 @@ class AnthropicProvider:
             yield AgentEvent("error", text=f"Agent error: {exc}")
 
     def _supports_adaptive_thinking(self) -> bool:
-        # Adaptive thinking is available on Opus 4.6+, Sonnet 4.6, and Fable 5 —
-        # not on Haiku (which 400s on the thinking param).
-        return "haiku" not in self.model
+        # Every current model takes adaptive thinking, and several refuse to run
+        # with thinking off. Haiku 4.5 and older models 400 on it.
+        return not self.model.startswith(("claude-haiku-4", "claude-3"))
 
     def _run_loop(self) -> Iterator[AgentEvent]:
         for _ in range(self.max_steps):
@@ -238,6 +238,9 @@ class AnthropicProvider:
                 if block.type == "text" and block.text.strip():
                     yield AgentEvent("text", text=block.text)
 
+            if response.stop_reason == "refusal":
+                yield AgentEvent("error", text="The model declined this request.")
+                return
             if response.stop_reason != "tool_use":
                 yield AgentEvent("done")
                 return
