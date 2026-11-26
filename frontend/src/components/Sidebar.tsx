@@ -10,6 +10,7 @@ import {
 const SOURCE_ICONS: Record<string, React.ElementType> = { user: User, agent: Bot, system: Cog };
 import { api, type Connection, type SavedQuery, type QueryFolder } from "../api/client";
 import { useStore } from "../store";
+import { connectionColor } from "../lib/theme";
 import { SchemaExplorer } from "./SchemaExplorer";
 import { ConnectionDialog } from "./ConnectionDialog";
 import { Modal } from "./Modal";
@@ -50,7 +51,7 @@ export function Sidebar() {
         <Panel defaultSize={45} minSize={15}>
           <QueriesPanel />
         </Panel>
-        <PanelResizeHandle className="h-[3px] bg-[#2c2c33] hover:bg-[#3d3d50] active:bg-[#5a5a80] cursor-row-resize transition-colors" />
+        <PanelResizeHandle className="h-[3px] bg-line hover:bg-grip-hover active:bg-grip-active cursor-row-resize transition-colors" />
         <Panel defaultSize={55} minSize={15}>
           <TablesPanel refreshing={refreshing} onRefresh={refreshSchema} />
         </Panel>
@@ -114,7 +115,7 @@ export function ConnectionsSidebar() {
     <SidebarPanel>
       <SidebarHeader label="CONNECTIONS">
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33]"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line"
           title="Add connection"
           onClick={() => setDialog({ open: true })}
         >
@@ -128,10 +129,10 @@ export function ConnectionsSidebar() {
 
       <div className="flex-1 overflow-auto min-h-0 px-1 pb-1">
         {conns.data?.length === 0 && (
-          <div className="px-2 py-2 text-xs text-[#6a6a72]">No connections yet — click + to add one.</div>
+          <div className="px-2 py-2 text-xs text-muted">No connections yet — click + to add one.</div>
         )}
         {term && visible.length === 0 && (
-          <div className="px-2 py-2 text-xs text-[#6a6a72]">No connections match "{search}".</div>
+          <div className="px-2 py-2 text-xs text-muted">No connections match "{search}".</div>
         )}
         {visible.map((c) => {
           const connected = c.id === activeConnectionId;
@@ -143,12 +144,12 @@ export function ConnectionsSidebar() {
               <div
                 onClick={() => setStatsConnection(c.id)}
                 className={`group flex items-stretch gap-2 px-2 py-2 rounded mt-1 cursor-pointer ${
-                  selected ? "bg-[#1e3550]" : "hover:bg-[#1d1d22]"
+                  selected ? "bg-accent-bg" : "hover:bg-hover"
                 }`}
               >
                 <span
                   className="w-1 rounded-full shrink-0"
-                  style={{ backgroundColor: c.color || "transparent" }}
+                  style={{ backgroundColor: connectionColor(c.color) }}
                 />
                 <div className="mt-0.5 shrink-0">
                   <ToggleSwitch
@@ -159,19 +160,19 @@ export function ConnectionsSidebar() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-[13px]">{c.name}</div>
-                  <div className="truncate text-[11px] text-[#6a6a72] font-mono">
+                  <div className="truncate text-[11px] text-muted font-mono">
                     {c.host}:{c.port}/{c.dbname}
                   </div>
                 </div>
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-[#6a6a72] hover:text-white shrink-0 mt-0.5 p-0.5 rounded"
+                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-white shrink-0 mt-0.5 p-0.5 rounded"
                   title="Edit"
                   onClick={(e) => { e.stopPropagation(); setDialog({ open: true, edit: c }); }}
                 >
                   <Pencil size={13} />
                 </button>
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-[#6a6a72] hover:text-red-400 shrink-0 mt-0.5 p-0.5 rounded"
+                  className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 shrink-0 mt-0.5 p-0.5 rounded"
                   title="Delete"
                   onClick={(e) => { e.stopPropagation(); confirm(`Delete connection "${c.name}"?`, () => del.mutate(c.id)); }}
                 >
@@ -179,7 +180,7 @@ export function ConnectionsSidebar() {
                 </button>
               </div>
               {connecting && (
-                <div className="mx-2 mb-1 h-[2px] rounded overflow-hidden bg-[#2c2c33]">
+                <div className="mx-2 mb-1 h-[2px] rounded overflow-hidden bg-line">
                   <div className="h-full w-1/3 bg-emerald-500/70 rounded animate-progress-slide" />
                 </div>
               )}
@@ -217,11 +218,11 @@ const ALL_LEVELS = ["info", "warn", "error"] as const;
 
 // Active-chip styling per level (inactive chips share one muted outline style).
 const LEVEL_CHIP_ACTIVE: Record<string, string> = {
-  info:  "bg-[#1e1e24] border-[#3a3a42] text-[#c8c8d0]",
-  warn:  "bg-[#2a2010] border-[#5a4020] text-amber-400",
-  error: "bg-[#2a1010] border-[#5a2020] text-red-400",
+  info:  "bg-hover border-line-strong text-body",
+  warn:  "bg-warning-bg border-warning-line text-amber-400",
+  error: "bg-danger-bg border-danger-line text-red-400",
 };
-const CHIP_INACTIVE = "border-[#2c2c33] text-[#4a4a52] hover:text-[#8a8a92] hover:border-[#3a3a42]";
+const CHIP_INACTIVE = "border-line text-faint hover:text-subtle hover:border-line-strong";
 
 export function LogsSidebar() {
   const {
@@ -274,7 +275,7 @@ export function LogsSidebar() {
       <div className="flex-1 overflow-auto min-h-0 px-2 py-3 space-y-4">
         {/* Source — compact filter chips (multi-select; none selected = all). */}
         <div>
-          <div className="text-[10px] font-semibold tracking-wider text-[#6a6a72] mb-2">SOURCE</div>
+          <div className="text-[10px] font-semibold tracking-wider text-muted mb-2">SOURCE</div>
           <div className="flex flex-wrap gap-1.5">
             {ALL_SOURCES.map((s) => {
               const active = logFilterSources.length === 0 || logFilterSources.includes(s);
@@ -284,12 +285,12 @@ export function LogsSidebar() {
                   key={s}
                   onClick={() => toggleSource(s)}
                   className={`inline-flex items-center gap-1 pl-1.5 pr-2 py-1 rounded-full border text-[11px] transition-colors ${
-                    active ? "bg-[#1e3550] border-[#33557d] text-[#cfe0f5]" : CHIP_INACTIVE
+                    active ? "bg-accent-bg border-accent-line-strong text-accent-text-bright" : CHIP_INACTIVE
                   }`}
                 >
                   {Icon && <Icon size={11} className="opacity-80 shrink-0" />}
                   {SOURCE_LABELS[s]}
-                  <span className={`tabular-nums text-[10px] ${active ? "text-[#8fb6e8]" : "text-[#4a4a52]"}`}>
+                  <span className={`tabular-nums text-[10px] ${active ? "text-accent-text-strong" : "text-faint"}`}>
                     {sourceCounts[s]}
                   </span>
                 </button>
@@ -301,7 +302,7 @@ export function LogsSidebar() {
         {/* Activity — what kind of work each entry represents. */}
         {presentKinds.length > 0 && (
           <div>
-            <div className="text-[10px] font-semibold tracking-wider text-[#6a6a72] mb-2">ACTIVITY</div>
+            <div className="text-[10px] font-semibold tracking-wider text-muted mb-2">ACTIVITY</div>
             <div className="flex flex-wrap gap-1.5">
               {presentKinds.map((k) => {
                 const active = logFilterKinds.length === 0 || logFilterKinds.includes(k);
@@ -324,7 +325,7 @@ export function LogsSidebar() {
 
         {/* Level */}
         <div>
-          <div className="text-[10px] font-semibold tracking-wider text-[#6a6a72] mb-2">LEVEL</div>
+          <div className="text-[10px] font-semibold tracking-wider text-muted mb-2">LEVEL</div>
           <div className="flex flex-wrap gap-1.5">
             {ALL_LEVELS.map((l) => {
               const active = logFilterLevels.length === 0 || logFilterLevels.includes(l);
@@ -346,8 +347,8 @@ export function LogsSidebar() {
 
         {/* Summary — at-a-glance activity, weighted toward query performance. */}
         {logs.length > 0 && (
-          <div className="pt-1 border-t border-[#2c2c33]">
-            <div className="text-[10px] font-semibold tracking-wider text-[#6a6a72] mb-2 mt-3">SUMMARY</div>
+          <div className="pt-1 border-t border-line">
+            <div className="text-[10px] font-semibold tracking-wider text-muted mb-2 mt-3">SUMMARY</div>
             <div className="space-y-1.5 text-[11px]">
               <SummaryRow label="Entries" value={logs.length.toLocaleString()} />
               <SummaryRow label="Queries" value={queries.toLocaleString()} />
@@ -368,8 +369,8 @@ export function LogsSidebar() {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[#6a6a72]">{label}</span>
-      <span className="tabular-nums text-[#c8c8d0]">{value}</span>
+      <span className="text-muted">{label}</span>
+      <span className="tabular-nums text-body">{value}</span>
     </div>
   );
 }
@@ -562,25 +563,25 @@ function QueriesPanel() {
             onDragStart={(e) => { e.stopPropagation(); setDragFolderId(folder.id); }}
             onDragEnd={() => setDragFolderId(null)}
             style={{ paddingLeft: 8 + indent }}
-            className={`group flex items-center gap-1.5 pr-2 py-1 rounded cursor-pointer select-none ${isOver ? "bg-[#1e3550]" : "hover:bg-[#1d1d22]"}`}
+            className={`group flex items-center gap-1.5 pr-2 py-1 rounded cursor-pointer select-none ${isOver ? "bg-accent-bg" : "hover:bg-hover"}`}
             onClick={() => !isRenaming && toggleFolder(folder.id)}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolderId(folder.id); }}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(folder.id); }}
           >
-            <span className="text-[#6a6a72] w-3 shrink-0 flex items-center">
+            <span className="text-muted w-3 shrink-0 flex items-center">
               {isOpen
                 ? <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M1 3l4 4 4-4H1z"/></svg>
                 : <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M3 1l4 4-4 4V1z"/></svg>
               }
             </span>
-            <span className="text-[#8a8a92] shrink-0 flex items-center">
+            <span className="text-subtle shrink-0 flex items-center">
               {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
             </span>
             {isRenaming ? (
               <input
                 ref={renameRef} value={renameVal}
                 onChange={(e) => setRenameVal(e.target.value)}
-                className="flex-1 bg-[#1d1d22] border border-[#3a3a4a] rounded px-1 text-[13px] text-white outline-none focus:border-[#5a5aaa]"
+                className="flex-1 bg-hover border border-line-strong rounded px-1 text-[13px] text-white outline-none focus:border-agent-line"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === "Enter") submitRename();
@@ -590,21 +591,21 @@ function QueriesPanel() {
               />
             ) : (
               <span
-                className="flex-1 truncate text-[13px] text-[#c8c8d0]"
+                className="flex-1 truncate text-[13px] text-body"
                 onDoubleClick={(e) => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}
               >
                 {folder.name}
               </span>
             )}
             <button
-              className="opacity-0 group-hover:opacity-100 text-[#8a8a92] hover:text-white shrink-0 p-0.5 rounded"
+              className="opacity-0 group-hover:opacity-100 text-subtle hover:text-white shrink-0 p-0.5 rounded"
               title="New subfolder"
               onClick={(e) => { e.stopPropagation(); startCreatingFolder(folder.id); }}
             >
               <Plus size={12} />
             </button>
             <button
-              className="opacity-0 group-hover:opacity-100 text-[#8a8a92] hover:text-red-400 shrink-0 p-0.5 rounded"
+              className="opacity-0 group-hover:opacity-100 text-subtle hover:text-red-400 shrink-0 p-0.5 rounded"
               title="Delete folder"
               onClick={(e) => { e.stopPropagation(); confirm(`Delete folder "${folder.name}" and all its contents?`, () => deleteFolder.mutate(folder.id)); }}
             >
@@ -622,7 +623,7 @@ function QueriesPanel() {
                     ref={newFolderRef} value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder="Folder name"
-                    className="w-full bg-[#1d1d22] border border-[#3a3a4a] rounded px-2 py-0.5 text-[13px] text-white outline-none focus:border-[#5a5aaa]"
+                    className="w-full bg-hover border border-line-strong rounded px-2 py-0.5 text-[13px] text-white outline-none focus:border-agent-line"
                     onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter") submitNewFolder();
                       if (e.key === "Escape") cancelNewFolder();
@@ -651,19 +652,19 @@ function QueriesPanel() {
     <div className="h-full flex flex-col min-h-0">
       <SidebarHeader label={`QUERIES${allQueries.length ? ` (${allQueries.length})` : ""}`}>
         {hasWorkspace && (
-          <button className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33]" title="Reveal in Finder"
+          <button className="text-subtle hover:text-white p-1 rounded hover:bg-line" title="Reveal in Finder"
             onClick={() => api.revealWorkspace()}>
             <ExternalLink size={14} />
           </button>
         )}
         {hasWorkspace && (
-          <button className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33]" title="New folder"
+          <button className="text-subtle hover:text-white p-1 rounded hover:bg-line" title="New folder"
             onClick={() => startCreatingFolder(null)}>
             <Plus size={14} />
           </button>
         )}
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33]"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line"
           title={hasWorkspace ? "Change workspace folder" : "Open workspace folder"}
           onClick={handlePickWorkspace}
         >
@@ -673,7 +674,7 @@ function QueriesPanel() {
 
       {workspace.data?.path && (
         <div
-          className="px-2 py-0.5 text-[11px] text-[#6a6a72] truncate border-b border-[#2c2c33] cursor-pointer hover:text-[#a0a0a8]"
+          className="px-2 py-0.5 text-[11px] text-muted truncate border-b border-line cursor-pointer hover:text-soft"
           title={workspace.data.path}
           onClick={() => api.revealWorkspace()}
         >
@@ -687,10 +688,10 @@ function QueriesPanel() {
 
       {!hasWorkspace ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
-          <p className="text-xs text-[#6a6a72] text-center">Open a folder to save and organize queries as plain <code className="font-mono">.sql</code> files</p>
+          <p className="text-xs text-muted text-center">Open a folder to save and organize queries as plain <code className="font-mono">.sql</code> files</p>
           <button
             onClick={handlePickWorkspace}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1e3550] hover:bg-[#263d5e] text-[#6aa3e8] text-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-accent-bg hover:bg-accent-bg-hover text-accent-text text-xs"
           >
             <FolderOpen size={14} /> Open folder…
           </button>
@@ -708,7 +709,7 @@ function QueriesPanel() {
                 ref={newFolderRef} value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Folder name"
-                className="w-full bg-[#1d1d22] border border-[#3a3a4a] rounded px-2 py-0.5 text-[13px] text-white outline-none focus:border-[#5a5aaa]"
+                className="w-full bg-hover border border-line-strong rounded px-2 py-0.5 text-[13px] text-white outline-none focus:border-agent-line"
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === "Enter") submitNewFolder();
                   if (e.key === "Escape") cancelNewFolder();
@@ -731,7 +732,7 @@ function QueriesPanel() {
           ))}
 
           {allQueries.length === 0 && newFolderParentId === undefined && (
-            <div className="px-2 text-xs text-[#6a6a72]">No saved queries</div>
+            <div className="px-2 text-xs text-muted">No saved queries</div>
           )}
         </div>
       )}
@@ -826,16 +827,16 @@ function QueryRow({ query, indentPx = 8, onOpen, onDelete, onRename, onDragStart
       onDragStart={(e) => { if (!renaming) { e.stopPropagation(); onDragStart(); } }}
       onDragEnd={onDragEnd}
       style={{ paddingLeft: indentPx }}
-      className="group flex items-center gap-2 pr-2 py-1 rounded hover:bg-[#1d1d22] cursor-pointer"
+      className="group flex items-center gap-2 pr-2 py-1 rounded hover:bg-hover cursor-pointer"
       onClick={() => !renaming && onOpen()}
       title={renaming ? undefined : query.sql}
     >
-      <FileCode2 size={13} className="text-[#6a6a72] shrink-0" />
+      <FileCode2 size={13} className="text-muted shrink-0" />
       {renaming ? (
         <input
           ref={inputRef} value={val}
           onChange={(e) => setVal(e.target.value)}
-          className="flex-1 bg-[#1d1d22] border border-[#3a3a4a] rounded px-1 text-[13px] text-white outline-none focus:border-[#5a5aaa]"
+          className="flex-1 bg-hover border border-line-strong rounded px-1 text-[13px] text-white outline-none focus:border-agent-line"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "Enter") submitRename();
@@ -851,7 +852,7 @@ function QueryRow({ query, indentPx = 8, onOpen, onDelete, onRename, onDragStart
           {query.name}
         </span>
       )}
-      <button className="opacity-0 group-hover:opacity-100 text-[#8a8a92] hover:text-red-400 shrink-0 p-0.5 rounded"
+      <button className="opacity-0 group-hover:opacity-100 text-subtle hover:text-red-400 shrink-0 p-0.5 rounded"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}>
         <Trash2 size={13} />
       </button>
@@ -873,7 +874,7 @@ export function ConfirmDialog({ state, onCancel }: { state: ConfirmState | null;
       footer={
         <>
           <button
-            className="px-3 py-1.5 rounded text-xs text-[#8a8a92] hover:bg-[#2c2c33] hover:text-white"
+            className="px-3 py-1.5 rounded text-xs text-subtle hover:bg-line hover:text-white"
             onClick={onCancel}
           >
             Cancel
@@ -887,7 +888,7 @@ export function ConfirmDialog({ state, onCancel }: { state: ConfirmState | null;
         </>
       }
     >
-      <p className="text-sm text-[#c8c8d0] mb-5">{state.message}</p>
+      <p className="text-sm text-body mb-5">{state.message}</p>
     </Modal>
   );
 }

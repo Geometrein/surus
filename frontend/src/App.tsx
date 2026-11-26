@@ -13,6 +13,7 @@ import { SchemaDiagramPage, SchemaDiagramSidebar } from "./components/SchemaDiag
 import { SettingsPage, SettingsSidebar } from "./components/SettingsPage";
 import { ChatPanel } from "./components/ChatPanel";
 import { AskPage } from "./components/AskPage";
+import { useAiEnabled } from "./hooks/useAiEnabled";
 
 function useQueryLogPoller() {
   const ingest = useStore((s) => s.ingestQueryLogs);
@@ -36,19 +37,29 @@ export function App() {
   const chatPanelRef = useRef<ImperativePanelHandle>(null);
   const chatOpen = useStore((s) => s.chatOpen);
   const setChatOpen = useStore((s) => s.setChatOpen);
+  const setPage = useStore((s) => s.setPage);
+  const aiEnabled = useAiEnabled();
+
+  // Turning AI off while on the Ask page would leave an empty screen.
+  useEffect(() => {
+    if (!aiEnabled && page === "ask") setPage("editor");
+  }, [aiEnabled, page, setPage]);
 
   // Keep the panel in sync when chatOpen is toggled elsewhere (e.g. the
   // EditorResults toolbar). Imperative expand/collapse only — the panel's own
   // onCollapse/onExpand callbacks drive chatOpen the other direction, and
   // calling expand()/collapse() when already in that state is a no-op.
+  //
+  // With AI off the panel stays in the layout, collapsed to nothing: removing it
+  // would make the panel library rebuild every width from its defaults.
   useEffect(() => {
-    if (chatOpen) chatPanelRef.current?.expand();
+    if (aiEnabled && chatOpen) chatPanelRef.current?.expand();
     else chatPanelRef.current?.collapse();
-  }, [chatOpen]);
+  }, [chatOpen, aiEnabled]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#161619] text-[#e2e2e8]">
-      <header className="h-12 shrink-0 flex items-center bg-[#1f1f24] border-b border-[#2c2c33]">
+    <div className="h-screen flex flex-col bg-app text-strong">
+      <header className="h-12 shrink-0 flex items-center bg-raised border-b border-line">
         <div className="w-10 shrink-0 flex items-center justify-center">
           <img src="/surus_logo.png" alt="Surus" className="h-7 w-7 rounded" />
         </div>
@@ -61,30 +72,34 @@ export function App() {
         {/* ── Editor ── always mounted so panel sizes survive page switches */}
         <div className={`flex-1 min-w-0 min-h-0 ${page === "editor" ? "flex" : "hidden"}`}>
           <PanelGroup direction="horizontal" className="flex-1 min-w-0 min-h-0">
-            <Panel defaultSize={22} minSize={14} maxSize={40}>
+            <Panel id="editor-sidebar" order={1} defaultSize={22} minSize={14} maxSize={40}>
               <Sidebar />
             </Panel>
             <HResize />
-            <Panel defaultSize={52} minSize={30} className="flex flex-col min-w-0">
+            <Panel id="editor-main" order={2} defaultSize={52} minSize={30} className="flex flex-col min-w-0">
               <EditorResults />
             </Panel>
-            <HResize />
+            <HResize hidden={!aiEnabled} />
             <Panel
+              id="editor-chat"
+              order={3}
               ref={chatPanelRef}
               defaultSize={26}
               minSize={16}
               maxSize={46}
               collapsible
-              onCollapse={() => setChatOpen(false)}
+              // Collapsing because AI was turned off is not the user closing the
+              // agent, so it must not change whether it reopens later.
+              onCollapse={() => aiEnabled && setChatOpen(false)}
               onExpand={() => setChatOpen(true)}
             >
-              <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />
+              {aiEnabled && <ChatPanel onCollapse={() => chatPanelRef.current?.collapse()} />}
             </Panel>
           </PanelGroup>
         </div>
 
         {/* ── Ask ── sidebar = chat history, central = chat with the database */}
-        {page === "ask" && <AskPage />}
+        {page === "ask" && aiEnabled && <AskPage />}
 
         {/* ── Connections ── sidebar = list, central = stats */}
         {page === "connections" && (
@@ -149,8 +164,9 @@ export function App() {
 // ---------------------------------------------------------------------------
 
 function ActivityBar({ page }: { page: Page }) {
+  const aiEnabled = useAiEnabled();
   return (
-    <nav className="w-10 shrink-0 flex flex-col items-center py-1 bg-[#1f1f24] border-r border-[#2c2c33]">
+    <nav className="w-10 shrink-0 flex flex-col items-center py-1 bg-raised border-r border-line">
       <ActivityTab active={page === "connections"} page="connections" title="Connections">
         <IconConnections />
       </ActivityTab>
@@ -160,9 +176,11 @@ function ActivityBar({ page }: { page: Page }) {
       <ActivityTab active={page === "editor"} page="editor" title="Editor">
         <IconEditor />
       </ActivityTab>
-      <ActivityTab active={page === "ask"} page="ask" title="Ask your data">
-        <MessageSquare size={20} strokeWidth={1.5} />
-      </ActivityTab>
+      {aiEnabled && (
+        <ActivityTab active={page === "ask"} page="ask" title="Ask your data">
+          <MessageSquare size={20} strokeWidth={1.5} />
+        </ActivityTab>
+      )}
       <div className="mt-auto w-full">
         <ActivityTab active={page === "logs"} page="logs" title="Logs">
           <IconLogs />
@@ -183,14 +201,14 @@ function ActivityTab({ active, page, title, children }: {
     <button
       onClick={() => setPage(page)}
       className={`group relative w-full flex items-center justify-center h-11 transition-colors ${
-        active ? "text-white" : "text-[#6a6a72] hover:text-[#a0a0a8] hover:bg-[#26262d]"
+        active ? "text-white" : "text-muted hover:text-soft hover:bg-raised-hover"
       }`}
     >
       {active && (
-        <span className="absolute left-0 top-[10px] bottom-[10px] w-[2px] rounded-r bg-[#3b6fb5]" />
+        <span className="absolute left-0 top-[10px] bottom-[10px] w-[2px] rounded-r bg-accent" />
       )}
       {children}
-      <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded bg-[#2c2c33] border border-[#3a3a42] text-[#e2e2e8] text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity delay-300 z-50 shadow-lg">
+      <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded bg-line border border-line-strong text-strong text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity delay-300 z-50 shadow-lg">
         {title}
       </span>
     </button>
@@ -254,7 +272,7 @@ function StatusBar() {
   const active = conns.data?.find((c) => c.id === activeConnectionId) ?? null;
 
   return (
-    <footer className={`h-6 shrink-0 flex items-center text-[11px] select-none border-t border-[#2c2c33] transition-colors ${active ? "bg-emerald-900/40" : "bg-red-900/40"}`}>
+    <footer className={`h-6 shrink-0 flex items-center text-[11px] select-none border-t border-line transition-colors ${active ? "bg-emerald-900/40" : "bg-red-900/40"}`}>
       {active ? (
         <button
           className="flex-1 h-full flex items-center gap-2 px-3 hover:bg-emerald-900/30 text-emerald-400 transition-colors"
@@ -283,7 +301,7 @@ function StatusBar() {
           </button>
           <div className="flex-1" />
           {serverVersion && (
-            <span className="px-3 text-[#4a4a52] font-mono">{shortVersion(serverVersion)}</span>
+            <span className="px-3 text-faint font-mono">{shortVersion(serverVersion)}</span>
           )}
         </>
       )}
@@ -295,8 +313,11 @@ function StatusBar() {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function HResize() {
+function HResize({ hidden = false }: { hidden?: boolean }) {
   return (
-    <PanelResizeHandle className="w-[3px] bg-[#2c2c33] hover:bg-[#3b6fb5] data-[resize-handle-state=drag]:bg-[#3b6fb5] transition-colors" />
+    <PanelResizeHandle
+      disabled={hidden}
+      className={hidden ? "hidden" : "w-[3px] bg-line hover:bg-accent data-[resize-handle-state=drag]:bg-accent transition-colors"}
+    />
   );
 }

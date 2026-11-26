@@ -17,7 +17,7 @@ export function AskPage() {
       <Panel defaultSize={22} minSize={14} maxSize={40}>
         <AskSidebar chat={chat} />
       </Panel>
-      <PanelResizeHandle className="w-[3px] bg-[#2c2c33] hover:bg-[#3b6fb5] data-[resize-handle-state=drag]:bg-[#3b6fb5] transition-colors" />
+      <PanelResizeHandle className="w-[3px] bg-line hover:bg-accent data-[resize-handle-state=drag]:bg-accent transition-colors" />
       <Panel defaultSize={78} minSize={40} className="flex flex-col min-w-0">
         <AskChat chat={chat} />
       </Panel>
@@ -30,7 +30,7 @@ function AskSidebar({ chat }: { chat: ChatController }) {
     <SidebarPanel>
       <SidebarHeader label="CHATS">
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33]"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line"
           title="New chat"
           onClick={chat.startNewChat}
         >
@@ -44,20 +44,20 @@ function AskSidebar({ chat }: { chat: ChatController }) {
 
 function AskChat({ chat }: { chat: ChatController }) {
   return (
-    <div className="w-full h-full flex flex-col bg-[#131316] min-h-0 min-w-0">
-      <div className="flex items-center gap-2 px-3 h-9 shrink-0 bg-[#1f1f24] border-b border-[#2c2c33]">
+    <div className="w-full h-full flex flex-col bg-sunken min-h-0 min-w-0">
+      <div className="flex items-center gap-2 px-3 h-9 shrink-0 bg-raised border-b border-line">
         <img src="/surus_logo.png" alt="" className="h-4 w-4 rounded" />
         <span className="font-semibold text-sm">Ask your data</span>
         <div className="flex-1" />
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] flex items-center gap-1 text-xs"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line flex items-center gap-1 text-xs"
           title="New chat"
           onClick={chat.startNewChat}
         >
           <Plus size={14} /> New
         </button>
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] flex items-center"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line flex items-center"
           title="API key settings"
           onClick={chat.openKeySettings}
         >

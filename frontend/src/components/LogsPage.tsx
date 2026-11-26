@@ -15,9 +15,9 @@ function levelBorder(lvl: string): string {
 }
 
 function durationBadge(ms: number): string {
-  if (ms < 100) return "bg-[#1a2a1a] text-emerald-500";
-  if (ms < 500) return "bg-[#2a2010] text-amber-400";
-  return "bg-[#2a1010] text-red-400";
+  if (ms < 100) return "bg-success-bg-dim text-emerald-500";
+  if (ms < 500) return "bg-warning-bg text-amber-400";
+  return "bg-danger-bg text-red-400";
 }
 
 function formatLine(l: LogEntry, tz: string): string {
@@ -74,8 +74,8 @@ export function LogsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1f1f24] border-b border-[#2c2c33] shrink-0">
-        <span className="text-xs text-[#8a8a92]">≡ Logs</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-raised border-b border-line shrink-0">
+        <span className="text-xs text-subtle">≡ Logs</span>
 
         {/* Level summary — counts double as quick level filters. */}
         <div className="flex items-center gap-1">
@@ -88,7 +88,7 @@ export function LogsPage() {
                 onClick={() => toggleLevel(lvl)}
                 title={`${counts[lvl]} ${lvl} — click to filter`}
                 className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded tabular-nums transition-colors ${
-                  active ? `bg-[#1e1e24] ${levelColor(lvl)}` : "text-[#4a4a52] hover:bg-[#1d1d22]"
+                  active ? `bg-hover ${levelColor(lvl)}` : "text-faint hover:bg-hover"
                 }`}
               >
                 {counts[lvl]} {lvl}
@@ -98,18 +98,18 @@ export function LogsPage() {
         </div>
 
         {filtersActive && (
-          <span className="text-[11px] text-[#6aa3e8]">{filtered.length} / {logs.length} shown</span>
+          <span className="text-[11px] text-accent-text">{filtered.length} / {logs.length} shown</span>
         )}
         <div className="flex-1" />
         <button
-          className="text-xs px-2 py-1 rounded hover:bg-[#1d1d22] text-[#8a8a92] hover:text-white disabled:opacity-40"
+          className="text-xs px-2 py-1 rounded hover:bg-hover text-subtle hover:text-white disabled:opacity-40"
           onClick={copyAll}
           disabled={filtered.length === 0}
         >
           Copy
         </button>
         <button
-          className="text-xs px-2 py-1 rounded hover:bg-[#1d1d22] text-[#8a8a92] hover:text-red-400 disabled:opacity-40 flex items-center gap-1"
+          className="text-xs px-2 py-1 rounded hover:bg-hover text-subtle hover:text-red-400 disabled:opacity-40 flex items-center gap-1"
           onClick={() => setConfirmClear(true)}
           disabled={logs.length === 0}
           title="Clear all logs"
@@ -122,10 +122,10 @@ export function LogsPage() {
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="absolute inset-0 overflow-auto font-mono text-xs p-2 bg-[#0e0e11]"
+          className="absolute inset-0 overflow-auto font-mono text-xs p-2 bg-deep"
         >
           {filtered.length === 0 && (
-            <div className="text-[#6a6a72]">
+            <div className="text-muted">
               {logs.length === 0 ? "No logs yet." : "No logs match the current filters."}
             </div>
           )}
@@ -137,7 +137,7 @@ export function LogsPage() {
         {!following && (
           <button
             onClick={jumpToLatest}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-[#1e3550] text-[#8fb6e8] border border-[#2c4a6e] shadow-lg hover:bg-[#263d5e]"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-accent-bg text-accent-text-strong border border-accent-line shadow-lg hover:bg-accent-bg-hover"
           >
             <ArrowDownToLine size={12} /> Jump to latest
           </button>
@@ -150,7 +150,7 @@ export function LogsPage() {
           footer={
             <>
               <button
-                className="px-3 py-1.5 rounded text-xs text-[#8a8a92] hover:bg-[#2c2c33] hover:text-white"
+                className="px-3 py-1.5 rounded text-xs text-subtle hover:bg-line hover:text-white"
                 onClick={() => setConfirmClear(false)}
               >
                 Cancel
@@ -164,7 +164,7 @@ export function LogsPage() {
             </>
           }
         >
-          <p className="text-sm text-[#c8c8d0]">
+          <p className="text-sm text-body">
             Clear all {logs.length} log {logs.length === 1 ? "entry" : "entries"}? This can't be undone.
           </p>
         </Modal>
@@ -187,10 +187,10 @@ function LogRow({ entry: l, tz }: { entry: LogEntry; tz: string }) {
 
   return (
     <div
-      className={`group flex items-start gap-2 px-1.5 py-0.5 rounded border-l-2 hover:bg-[#17171b] cursor-default ${levelBorder(l.level)}`}
+      className={`group flex items-start gap-2 px-1.5 py-0.5 rounded border-l-2 hover:bg-app cursor-default ${levelBorder(l.level)}`}
       onClick={() => setExpanded((e) => !e)}
     >
-      <span className="text-[#6a6a72] shrink-0 tabular-nums whitespace-nowrap w-[88px]">{formatClock(l.ts, tz)}</span>
+      <span className="text-muted shrink-0 tabular-nums whitespace-nowrap w-[88px]">{formatClock(l.ts, tz)}</span>
       <span className={`shrink-0 rounded px-1 text-[10px] uppercase tracking-wide flex items-center gap-0.5 ${sourceBadge(l.source)}`}>
         <Icon size={9} />
         {l.source}
@@ -210,7 +210,7 @@ function LogRow({ entry: l, tz }: { entry: LogEntry; tz: string }) {
       <button
         onClick={copy}
         title="Copy line"
-        className="opacity-0 group-hover:opacity-100 shrink-0 text-[#6a6a72] hover:text-white"
+        className="opacity-0 group-hover:opacity-100 shrink-0 text-muted hover:text-white"
       >
         {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
       </button>

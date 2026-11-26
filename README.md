@@ -4,7 +4,7 @@
 
 <h1 align="center">Surus</h1>
 
-<p align="center"><strong>Agentic Postgres companion — with the right guardrails to safely point LLMs at your prod DB.</strong></p>
+<p align="center"><strong>SQL client with an optional agentic layer that prioritizes query performance and data safety.</strong></p>
 
 <p align="center">
   <a href="#features">Features</a> ·
@@ -20,7 +20,7 @@
 
 ## Design
 
-Surus is a Postgres companion client with a built-in agent.
+Surus is a SQL client with an optional agentic layer that prioritizes query performance and data safety.
 The design philosophy is built around 3 core principles.
 
 **1. Tight Text-to-SQL Loop.**
@@ -55,6 +55,11 @@ The companion can be run as a local web app or a native MacOS app.
 - Auto generated ERD diagram with pan, zoom, and drag-to-reposition tables
 - Foreign key highlighting, with hover-to-trace relationships between tables
 - Filter to related tables only, or search by name and schema
+
+**Databases**
+- PostgreSQL (with TimescaleDB and PostGIS awareness) and ClickHouse, over its HTTPS interface.
+- On ClickHouse the read-only connection sends `readonly=2`, so the server refuses writes; sort keys, partition keys and skipping indexes stand in for indexes, and the agent reads `EXPLAIN indexes = 1`.
+- Password or client certificate login for both.
 
 **Logs**
 - Full query log tagged by who ran it — you, the agent, or the app
@@ -105,5 +110,6 @@ Everything is stored locally:
 
 - **Connections, saved queries, chat history, settings** live in a single SQLite file: `~/Library/Application Support/Surus/surus.db` on macOS, `%LOCALAPPDATA%\Surus` on Windows, `~/.local/share/Surus` on Linux.
 - **Secrets** — DB passwords and LLM API keys — live in the OS keychain under the service name `surus`.
+- **Client certificates** — a connection can log in with a certificate and key instead of a password. Surus stores only their file paths, so a short-lived certificate renewed in place keeps working without editing the connection.
 
 ---

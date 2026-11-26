@@ -94,7 +94,7 @@ class AnthropicProvider:
         if self._system_blocks is None:
             context = ctx.build_context(self.dialect, self.pool, plugins=self.plugins)
             self._system_blocks = [
-                {"type": "text", "text": build_system_prompt(self.custom_instructions, self.mode)},
+                {"type": "text", "text": build_system_prompt(self.custom_instructions, self.mode, self.dialect)},
                 {"type": "text", "text": context,
                  "cache_control": {"type": "ephemeral"}},
             ]
@@ -212,9 +212,9 @@ class AnthropicProvider:
             yield AgentEvent("error", text=f"Agent error: {exc}")
 
     def _supports_adaptive_thinking(self) -> bool:
-        # Adaptive thinking is available on Opus 4.6+, Sonnet 4.6, and Fable 5 —
-        # not on Haiku (which 400s on the thinking param).
-        return "haiku" not in self.model
+        # Every current model takes adaptive thinking, and several refuse to run
+        # with thinking off. Haiku 4.5 and older models 400 on it.
+        return not self.model.startswith(("claude-haiku-4", "claude-3"))
 
     def _run_loop(self) -> Iterator[AgentEvent]:
         for _ in range(self.max_steps):
@@ -231,6 +231,11 @@ class AnthropicProvider:
             if self._supports_adaptive_thinking():
                 kwargs["thinking"] = {"type": "adaptive"}
             response = self.client.messages.create(**kwargs)
+            if response.stop_reason == "refusal":
+                # Not kept in the history: a refusal before any output is an
+                # empty turn, which the API rejects on every later request.
+                yield AgentEvent("error", text="The model declined this request.")
+                return
             # Preserve full content (incl. thinking/tool_use) for the next turn.
             self.messages.append({"role": "assistant", "content": response.content})
 

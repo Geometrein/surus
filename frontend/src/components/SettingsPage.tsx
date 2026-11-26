@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Info, SquareTerminal } from "lucide-react";
-import { api } from "../api/client";
+import { Sparkles, Info, SquareTerminal, Palette, Check } from "lucide-react";
+import { api, type Settings } from "../api/client";
 import { useStore } from "../store";
 import { browserTimezone } from "../utils";
 import { SidebarPanel, SidebarHeader } from "./SidebarPanel";
+import { ToggleSwitch } from "./ToggleSwitch";
+import { THEMES, type ThemeInfo } from "../lib/themes";
 
 // Every IANA timezone the runtime knows, with a small fallback for older engines.
 const TIMEZONES: string[] = (() => {
@@ -35,6 +37,7 @@ interface Category {
 const CATEGORIES: Category[] = [
   { id: "agent", label: "Agent", icon: <Sparkles size={15} />, render: () => <AgentSettings /> },
   { id: "editor", label: "Editor", icon: <SquareTerminal size={15} />, render: () => <EditorSettings /> },
+  { id: "appearance", label: "Appearance", icon: <Palette size={15} />, render: () => <AppearanceSettings /> },
   { id: "about", label: "About", icon: <Info size={15} />, render: () => <AboutSettings /> },
 ];
 
@@ -57,10 +60,10 @@ export function SettingsSidebar() {
               key={c.id}
               onClick={() => setSettingsCategory(c.id)}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded mt-1 text-left text-[13px] transition-colors ${
-                selected ? "bg-[#1e3550] text-white" : "text-[#a0a0a8] hover:bg-[#1d1d22] hover:text-white"
+                selected ? "bg-accent-bg text-white" : "text-soft hover:bg-hover hover:text-white"
               }`}
             >
-              <span className={selected ? "text-[#6aa3e8]" : "text-[#6a6a72]"}>{c.icon}</span>
+              <span className={selected ? "text-accent-text" : "text-muted"}>{c.icon}</span>
               {c.label}
             </button>
           );
@@ -77,7 +80,7 @@ export function SettingsSidebar() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-10">
-      <h2 className="text-[11px] font-bold tracking-wider text-[#6a6a72] uppercase mb-4 pb-2 border-b border-[#2c2c33]">
+      <h2 className="text-[11px] font-bold tracking-wider text-muted uppercase mb-4 pb-2 border-b border-line">
         {title}
       </h2>
       <div className="space-y-5">{children}</div>
@@ -100,7 +103,7 @@ function CollapsibleSection({
     <section className="mb-10">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 mb-4 pb-2 border-b border-[#2c2c33] text-[11px] font-bold tracking-wider text-[#6a6a72] uppercase hover:text-[#a0a0a8] transition-colors"
+        className="w-full flex items-center gap-2 mb-4 pb-2 border-b border-line text-[11px] font-bold tracking-wider text-muted uppercase hover:text-soft transition-colors"
       >
         <span className="text-[10px] w-3 text-left">{open ? "▾" : "▸"}</span>
         <span className="flex-1 text-left">{title}</span>
@@ -113,8 +116,8 @@ function CollapsibleSection({
 function Field({ label, hint, children }: { label?: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      {label && <label className="block text-sm text-[#c8c8d0] mb-1">{label}</label>}
-      {hint && <p className="text-xs text-[#6a6a72] mb-2">{hint}</p>}
+      {label && <label className="block text-sm text-body mb-1">{label}</label>}
+      {hint && <p className="text-xs text-muted mb-2">{hint}</p>}
       {children}
     </div>
   );
@@ -129,7 +132,7 @@ export function SettingsPage() {
   const category = CATEGORIES.find((c) => c.id === settingsCategory) ?? CATEGORIES[0];
 
   return (
-    <div className="h-full overflow-auto bg-[#131316]">
+    <div className="h-full overflow-auto bg-sunken">
       <div className="max-w-2xl px-10 py-8">
         <h1 className="text-xl font-semibold mb-8">{category.label}</h1>
         {category.render()}
@@ -143,34 +146,64 @@ export function SettingsPage() {
 // ---------------------------------------------------------------------------
 
 function AgentSettings() {
+  const qc = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
+  const aiEnabled = settings.data?.aiEnabled ?? true;
+  const [busy, setBusy] = useState(false);
 
+  async function toggleAi() {
+    setBusy(true);
+    try {
+      await api.setAiEnabled(!aiEnabled);
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Section title="AI features">
+        <Field
+          label="Use AI"
+          hint="Off turns Surus into a plain SQL editor: the agent panel, the Ask page and every AI button are hidden, and nothing is sent to a model. Saved chats and API keys are kept for when you turn it back on."
+        >
+          <ToggleSwitch on={aiEnabled} onClick={toggleAi} busy={busy} label={aiEnabled ? "On" : "Off"} />
+        </Field>
+      </Section>
+
+      {aiEnabled && <AgentDetails settings={settings.data} />}
+    </>
+  );
+}
+
+function AgentDetails({ settings }: { settings: Settings | undefined }) {
   return (
     <>
       <Section title="Providers">
         {/* One card per provider — key stored per provider in the keychain. */}
-        {(settings.data?.providers ?? []).map((p) => (
+        {(settings?.providers ?? []).map((p) => (
           <ProviderCard key={p.id} providerId={p.id} name={p.label} hasKey={p.hasKey} keyPlaceholder={p.keyPlaceholder} />
         ))}
       </Section>
 
       <Section title="Model">
-        <DefaultModelField models={settings.data?.models ?? []} defaultModel={settings.data?.defaultModel ?? ""} />
+        <DefaultModelField models={settings?.models ?? []} defaultModel={settings?.defaultModel ?? ""} />
       </Section>
 
       <CollapsibleSection title="System prompt">
         <SystemPromptField
-          systemPrompt={settings.data?.systemPrompt ?? ""}
-          savedInstructions={settings.data?.customInstructions ?? ""}
+          systemPrompt={settings?.systemPrompt ?? ""}
+          savedInstructions={settings?.customInstructions ?? ""}
         />
       </CollapsibleSection>
 
       <Section title="Behavior">
-        <AgentTimeoutField timeoutSec={settings.data?.agentTimeoutSec ?? 30} />
+        <AgentTimeoutField timeoutSec={settings?.agentTimeoutSec ?? 30} />
         <NumberSettingField
           label="Max agent steps"
           hint="How many tool-use round-trips the agent may take before it stops — each step is one model call plus a query. Higher lets it work through complex, multi-table questions; lower caps latency and token spend. A run that hits the ceiling stops with a note and keeps what it found. Default 12."
-          value={settings.data?.agentMaxSteps ?? 12}
+          value={settings?.agentMaxSteps ?? 12}
           min={2}
           max={50}
           onSave={api.setAgentMaxSteps}
@@ -178,7 +211,7 @@ function AgentSettings() {
         <NumberSettingField
           label="Max response tokens"
           hint="Upper bound on tokens the model may generate per call — its reasoning plus the answer. Raise it if replies get cut off on large results; lower it to rein in cost and latency. This caps length, it doesn't reserve it. Default 16,000."
-          value={settings.data?.agentMaxTokens ?? 16000}
+          value={settings?.agentMaxTokens ?? 16000}
           min={1000}
           max={64000}
           onSave={api.setAgentMaxTokens}
@@ -214,13 +247,13 @@ function ProviderCard({
   }
 
   return (
-    <div className="border border-[#2c2c33] rounded-lg p-4 bg-[#161619]">
+    <div className="border border-line rounded-lg p-4 bg-app">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-[#e0e0e6]">{name}</span>
+        <span className="text-sm font-medium text-strong">{name}</span>
         {hasKey ? (
           <span className="text-xs text-emerald-500">✓ API key set</span>
         ) : (
-          <span className="text-xs text-[#6a6a72]">No key</span>
+          <span className="text-xs text-muted">No key</span>
         )}
       </div>
       <div className="flex gap-2">
@@ -230,17 +263,17 @@ function ProviderCard({
           onChange={(e) => setKeyInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") saveKey(); }}
           placeholder={keyPlaceholder}
-          className="flex-1 bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] font-mono"
+          className="flex-1 bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent font-mono"
         />
         <button
           onClick={saveKey}
           disabled={!keyInput.trim()}
-          className="px-4 py-1.5 rounded bg-[#3b6fb5] hover:bg-[#4a7fc5] text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
+          className="px-4 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
         >
           {savedLabel ? "Saved ✓" : "Save"}
         </button>
       </div>
-      <p className="text-xs text-[#6a6a72] mt-2">
+      <p className="text-xs text-muted mt-2">
         {hasKey
           ? "A key is stored in the system keychain. Enter a new one to replace it."
           : "Stored in the system keychain — the agent won't work without one."}
@@ -263,7 +296,7 @@ function DefaultModelField({ models, defaultModel }: { models: string[]; default
           await api.setDefaultModel(e.target.value);
           qc.invalidateQueries({ queryKey: ["settings"] });
         }}
-        className="bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0] font-mono"
+        className="bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body font-mono"
       >
         {models.map((m) => (
           <option key={m} value={m}>{m}</option>
@@ -292,12 +325,12 @@ function AgentTimeoutField({ timeoutSec }: { timeoutSec: number }) {
   return (
     <Field
       label="Agent query timeout"
-      hint="Max time the agent's own EXPLAIN/sample queries may run before Postgres cancels them. Independent of the editor's query timeout; a cancelled query is reported back to the agent, which can retry a lighter one."
+      hint="Max time the agent's own EXPLAIN/sample queries may run before the database cancels them. Independent of the editor's query timeout; a cancelled query is reported back to the agent, which can retry a lighter one."
     >
       <select
         value={timeoutSec}
         onChange={(e) => save(Number(e.target.value))}
-        className="bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0]"
+        className="bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body"
       >
         {AGENT_TIMEOUT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -352,12 +385,12 @@ function NumberSettingField({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-          className="w-32 bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0] font-mono"
+          className="w-32 bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body font-mono"
         />
         <button
           onClick={save}
           disabled={!dirty}
-          className="px-4 py-1.5 rounded bg-[#3b6fb5] hover:bg-[#4a7fc5] text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
+          className="px-4 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
         >
           {saved ? "Saved ✓" : "Save"}
         </button>
@@ -399,12 +432,12 @@ function SystemPromptField({
       <button
         type="button"
         onClick={() => setShowBase((v) => !v)}
-        className="text-xs text-[#6aa3e8] hover:underline mb-2"
+        className="text-xs text-accent-text hover:underline mb-2"
       >
         {showBase ? "Hide" : "View"} fixed base prompt
       </button>
       {showBase && (
-        <pre className="bg-[#1b1b1f] border border-[#2c2c33] rounded px-3 py-2 mb-3 text-[11px] leading-relaxed text-[#a0a0a8] whitespace-pre-wrap font-mono max-h-56 overflow-auto">
+        <pre className="bg-panel border border-line rounded px-3 py-2 mb-3 text-[11px] leading-relaxed text-soft whitespace-pre-wrap font-mono max-h-56 overflow-auto">
           {systemPrompt}
         </pre>
       )}
@@ -413,20 +446,20 @@ function SystemPromptField({
         onChange={(e) => setValue(e.target.value)}
         rows={6}
         placeholder="e.g. Prefer CTEs over subqueries. Our fiscal year starts in April. Keep rationales to two sentences."
-        className="w-full bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-2 text-sm outline-none focus:border-[#3b6fb5] font-mono resize-y"
+        className="w-full bg-panel border border-line-strong rounded px-3 py-2 text-sm outline-none focus:border-accent font-mono resize-y"
       />
       <div className="flex items-center gap-3 mt-2">
         <button
           onClick={save}
           disabled={!dirty}
-          className="px-4 py-1.5 rounded bg-[#3b6fb5] hover:bg-[#4a7fc5] text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
+          className="px-4 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
         >
           {saved ? "Saved ✓" : "Save"}
         </button>
         {value.trim() && (
           <button
             onClick={() => setValue("")}
-            className="text-xs text-[#6a6a72] hover:text-[#c8c8d0]"
+            className="text-xs text-muted hover:text-body"
           >
             Clear
           </button>
@@ -487,7 +520,7 @@ function EditorSettings() {
         <select
           value={settings.data?.queryTimeoutSec ?? 120}
           onChange={(e) => saveTimeout(Number(e.target.value))}
-          className="bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0]"
+          className="bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body"
         >
           {QUERY_TIMEOUT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -506,12 +539,12 @@ function EditorSettings() {
             value={limit}
             onChange={(e) => setLimit(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") saveLimit(); }}
-            className="w-32 bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0] font-mono"
+            className="w-32 bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body font-mono"
           />
           <button
             onClick={saveLimit}
             disabled={!dirty}
-            className="px-4 py-1.5 rounded bg-[#3b6fb5] hover:bg-[#4a7fc5] text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
+            className="px-4 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-sm disabled:opacity-40 transition-colors min-w-[80px]"
           >
             {saved ? "Saved ✓" : "Save"}
           </button>
@@ -536,7 +569,7 @@ function DisplaySettings() {
         <select
           value={timezone}
           onChange={(e) => setTimezone(e.target.value)}
-          className="bg-[#1b1b1f] border border-[#3a3a42] rounded px-3 py-1.5 text-sm outline-none focus:border-[#3b6fb5] text-[#c8c8d0] max-w-xs"
+          className="bg-panel border border-line-strong rounded px-3 py-1.5 text-sm outline-none focus:border-accent text-body max-w-xs"
         >
           <option value="">Automatic ({browserTimezone()})</option>
           {TIMEZONES.map((z) => (
@@ -550,6 +583,51 @@ function DisplaySettings() {
 
 
 // ---------------------------------------------------------------------------
+// Appearance category — colour theme (a per-device preference)
+// ---------------------------------------------------------------------------
+
+function AppearanceSettings() {
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
+  return (
+    <Section title="Theme">
+      <div className="grid grid-cols-2 gap-3 max-w-lg">
+        {THEMES.map((t) => (
+          <ThemeCard key={t.id} theme={t} selected={t.id === theme} onSelect={() => setTheme(t.id)} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function ThemeCard({ theme, selected, onSelect }: { theme: ThemeInfo; selected: boolean; onSelect: () => void }) {
+  const p = theme.preview;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`text-left rounded-lg border p-2 transition-colors ${
+        selected ? "border-accent-focus" : "border-line hover:border-line-strong"
+      }`}
+    >
+      <div className="h-16 rounded flex overflow-hidden" style={{ backgroundColor: p.app }}>
+        <div className="w-1/3" style={{ backgroundColor: p.panel }} />
+        <div className="flex-1 p-2 flex flex-col gap-1.5">
+          <div className="h-1.5 w-3/4 rounded-full" style={{ backgroundColor: p.text }} />
+          <div className="h-1.5 w-1/2 rounded-full" style={{ backgroundColor: p.accent }} />
+          <div className="h-1.5 w-2/3 rounded-full" style={{ backgroundColor: p.agent }} />
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mt-2 text-[13px] text-body">
+        {selected && <Check size={13} className="text-accent-text" />}
+        {theme.label}
+      </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // About category
 // ---------------------------------------------------------------------------
 
@@ -557,12 +635,12 @@ function AboutSettings() {
   return (
     <Section title="About">
       <Field label="Application">
-        <div className="text-sm text-[#c8c8d0]">Surus</div>
+        <div className="text-sm text-body">Surus</div>
       </Field>
       <Field label="Description">
-        <p className="text-sm text-[#c8c8d0] leading-relaxed">
-          Agentic PostgreSQL client that prioritizes query performance and data
-          safety.
+        <p className="text-sm text-body leading-relaxed">
+          SQL client with an optional agentic layer that prioritizes query
+          performance and data safety.
         </p>
       </Field>
       <Field label="Author">
@@ -570,7 +648,7 @@ function AboutSettings() {
           href="https://github.com/Geometrein"
           target="_blank"
           rel="noreferrer"
-          className="text-sm text-[#6aa3e8] hover:underline"
+          className="text-sm text-accent-text hover:underline"
         >
           Geometrein
         </a>

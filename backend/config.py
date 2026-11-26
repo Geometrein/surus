@@ -25,7 +25,7 @@ def llm_key_username(provider: str) -> str:
 
 # Defaults surfaced to the API/UI.
 DEFAULT_LLM_PROVIDER = "anthropic"
-DEFAULT_LLM_MODEL = "claude-haiku-4-5"
+DEFAULT_LLM_MODEL = "claude-haiku-5-5"
 DEFAULT_STATEMENT_TIMEOUT_MS = 120_000
 DEFAULT_PREVIEW_ROW_LIMIT = 200
 # Per-statement timeout for the agent's own tool queries (run_query/run_explain),

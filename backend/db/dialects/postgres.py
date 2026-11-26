@@ -16,7 +16,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from backend.db import introspect, query, querylog, snapshot
-from backend.db.connections import get_password
+from backend.db.connections import cert_files, explain_connect_error, get_password
 from backend.db.dialects.base import Dialect
 from backend.db.extensions import detect as detect_extension_plugins
 
@@ -44,6 +44,7 @@ def _make_configure(connection_id: str, pool_kind: str):
 
 class PostgresDialect(Dialect):
     name = "postgres"
+    label = "PostgreSQL"
     default_port = 5432
 
     # -- connection lifecycle ------------------------------------------------
@@ -60,18 +61,28 @@ class PostgresDialect(Dialect):
             "sslmode": profile.sslmode,
             "application_name": "surus",
         }
-        if password:
+        certs = cert_files(profile)
+        # A certificate login sends no password, even one left in the keychain.
+        if password and not certs.cert:
             kwargs["password"] = password
+        for key, path in (
+            ("sslcert", certs.cert), ("sslkey", certs.key), ("sslrootcert", certs.root_cert),
+        ):
+            if path:
+                kwargs[key] = path
         return make_conninfo(**kwargs)
 
     def probe(self, profile: "ConnectionProfile", password: str | None) -> str:
         conninfo = make_conninfo(
             self.build_conninfo(profile, password), connect_timeout=CONNECT_TIMEOUT_S
         )
-        with psycopg.connect(conninfo) as probe:
-            with probe.cursor() as cur:
-                cur.execute("SELECT version()")
-                return cur.fetchone()[0]
+        try:
+            with psycopg.connect(conninfo) as probe:
+                with probe.cursor() as cur:
+                    cur.execute("SELECT version()")
+                    return cur.fetchone()[0]
+        except psycopg.OperationalError as exc:
+            raise explain_connect_error(exc) from exc
 
     def create_pools(
         self, profile: "ConnectionProfile", statement_timeout_ms: int
@@ -143,7 +154,10 @@ class PostgresDialect(Dialect):
     def detect_plugins(self, extensions: list[dict]) -> list["ExtensionPlugin"]:
         return detect_extension_plugins(e["name"] for e in extensions)
 
-    def cancel(self, profile: "ConnectionProfile", pid: int) -> bool:
+    def cancel(self, profile: "ConnectionProfile", connection_id: str) -> bool | None:
+        pid = query.get_running_pid(connection_id)
+        if pid is None:
+            return None
         # A one-off connection (not from the pool) so we can never deadlock
         # waiting for a pool slot the running query already holds.
         conninfo = self.build_conninfo(profile, get_password(profile))

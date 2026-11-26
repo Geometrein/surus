@@ -28,26 +28,36 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- types -----------------------------------------------------------------
 
+export type DatabaseKind = "postgres" | "clickhouse";
+
 export interface Connection {
   id: string;
   name: string;
+  kind: DatabaseKind;
   host: string;
   port: number;
   dbname: string;
   user: string;
   sslmode: string;
+  ssl_cert: string;
+  ssl_key: string;
+  ssl_root_cert: string;
   color: string;
   connected: boolean;
 }
 
 export interface ConnectionInput {
   name: string;
+  kind: DatabaseKind;
   host: string;
   port: number;
   dbname: string;
   user: string;
   password: string;
   sslmode: string;
+  ssl_cert: string;
+  ssl_key: string;
+  ssl_root_cert: string;
   color: string;
 }
 
@@ -162,6 +172,7 @@ export interface Settings {
   agentMaxTokens: number;      // max output tokens per model call
   queryTimeoutSec: number;     // editor/query pool timeout (applied on reconnect)
   previewRowLimit: number;     // max rows returned by editor queries
+  aiEnabled: boolean;          // false = plain SQL editor, nothing sent to an LLM
 }
 
 export interface ChatSessionT {
@@ -327,6 +338,11 @@ export const api = {
     req<{ queryTimeoutSec: number }>("/settings/query-timeout", {
       method: "PUT",
       body: JSON.stringify({ queryTimeoutSec }),
+    }),
+  setAiEnabled: (aiEnabled: boolean) =>
+    req<{ aiEnabled: boolean }>("/settings/ai-enabled", {
+      method: "PUT",
+      body: JSON.stringify({ aiEnabled }),
     }),
   setPreviewRowLimit: (previewRowLimit: number) =>
     req<{ previewRowLimit: number }>("/settings/preview-row-limit", {

@@ -113,5 +113,5 @@ class Database:
     def run_explain(self, sql: str, analyze: bool = False) -> dict:
         return self.dialect.run_explain(self.ro, sql, analyze=analyze)
 
-    def cancel(self, pid: int) -> bool:
-        return self.dialect.cancel(self.profile, pid)
+    def cancel(self, connection_id: str) -> bool | None:
+        return self.dialect.cancel(self.profile, connection_id)

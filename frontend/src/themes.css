@@ -1,0 +1,154 @@
+/* Themes. Each one redefines the colour tokens from index.css when <html>
+   carries its data-theme. Surus Dark is the defaults, so it needs no block.
+   Tailwind's own palette (text-red-400, ...) is redefined too, so status
+   colours match the theme. Unlayered, so these win over the token defaults. */
+
+/* Tokyo Night (night variant), after folke/tokyonight.nvim. */
+:root[data-theme="tokyo-night"] {
+  --color-deep: #0c0e14;
+  --color-sunken: #13141c;
+  --color-app: #16161e;
+  --color-panel: #1a1b26;
+  --color-hover: #1f2233;
+  --color-raised: #1f2335;
+  --color-raised-hover: #24283b;
+  --color-line: #292e42;
+  --color-line-strong: #3b4261;
+
+  --color-faint: #414868;
+  --color-dim: #545c7e;
+  --color-muted: #565f89;
+  --color-subtle: #737aa2;
+  --color-soft: #9aa5ce;
+  --color-body: #a9b1d6;
+  --color-strong: #c0caf5;
+
+  --color-accent: #3d59a1;
+  --color-accent-hover: #4a6bbd;
+  --color-accent-focus: #5a7ecb;
+  --color-accent-text: #7aa2f7;
+  --color-accent-text-dim: #6183bb;
+  --color-accent-text-strong: #7dcfff;
+  --color-accent-text-bright: #c0caf5;
+  --color-accent-bg: #283457;
+  --color-accent-bg-dim: #1f2a48;
+  --color-accent-bg-soft: #24304f;
+  --color-accent-bg-hover: #2f3d66;
+  --color-accent-line: #3d59a1;
+  --color-accent-line-strong: #4a6bbd;
+  --color-accent-arrow: #3d59a1;
+  --color-accent-arrow-text: #6183bb;
+
+  --color-agent: #bb9af7;
+  --color-agent-soft: #9d7cd8;
+  --color-agent-strong: #d0b8ff;
+  --color-agent-strong-soft: #bb9af7;
+  --color-agent-bg: #2a2442;
+  --color-agent-bg-soft: #262238;
+  --color-agent-bg-strong: #3b2f5c;
+  --color-agent-line: #9d7cd8;
+  --color-chat-badge: #7aa2f7;
+  --color-chat-badge-bg: #24283b;
+  --color-grip-hover: #3b4261;
+  --color-grip-active: #545c7e;
+
+  --color-success: #9ece6a;
+  --color-success-bright: #9ece6a;
+  --color-key: #73daca;
+  --color-success-bg: #1f2d25;
+  --color-success-bg-dim: #1c2a22;
+  --color-system-bg: #1f2a2a;
+
+  --color-danger: #db4b4b;
+  --color-danger-hover: #e86060;
+  --color-danger-soft: #f7768e;
+  --color-danger-text: #f7768e;
+  --color-danger-text-strong: #ffc2cc;
+  --color-danger-bg: #2d1a22;
+  --color-danger-bg-soft: #3a1f2a;
+  --color-danger-banner: #3a1d26;
+  --color-danger-bg-hover: #4a2533;
+  --color-danger-line: #5c2b3a;
+  --color-danger-solid: #db4b4b;
+  --color-danger-solid-hover: #e86060;
+
+  --color-warning: #e0af68;
+  --color-warning-soft: #d7a55f;
+  --color-warning-bg: #2e2717;
+  --color-warning-bg-soft: #2a2618;
+  --color-warning-line: #5c4a26;
+
+  --color-info: #7dcfff;
+  --color-kind-view: #73daca;
+  --color-code: #7dcfff;
+
+  --color-diagram-header: #24283b;
+  --color-diagram-title: #c0caf5;
+  --color-diagram-meta: #737aa2;
+  --color-diagram-faint: #545c7e;
+  --color-diagram-edge: #3b4261;
+
+  --color-type-number: #7dcfff;
+  --color-type-text: #9ece6a;
+  --color-type-time: #e0af68;
+  --color-type-bool: #bb9af7;
+  --color-type-collection: #ff9e64;
+  --color-type-geo: #f7768e;
+  --color-type-id: #8c96c4;
+
+  --color-chart-1: #7aa2f7;
+  --color-chart-2: #bb9af7;
+  --color-chart-3: #9ece6a;
+  --color-chart-4: #ff9e64;
+  --color-chart-5: #e0af68;
+  --color-chart-6: #73daca;
+  --color-chart-7: #f7768e;
+  --color-chart-8: #7dcfff;
+
+  --color-swatch-1: #f7768e;
+  --color-swatch-2: #ff9e64;
+  --color-swatch-3: #e0af68;
+  --color-swatch-4: #9ece6a;
+  --color-swatch-5: #73daca;
+  --color-swatch-6: #7aa2f7;
+  --color-swatch-7: #bb9af7;
+  --color-swatch-8: #d18ae0;
+
+  --color-editor-bg: #1a1b26;
+  --color-editor-panel: #16161e;
+  --color-editor-text: #c0caf5;
+  --color-editor-gutter-text: #3b4261;
+  --color-editor-active-gutter: #292e42;
+  --color-editor-tooltip: #1f2335;
+  --color-editor-selection: #283457;
+  --color-editor-cursor: #c0caf5;
+  --color-syntax-keyword: #bb9af7;
+  --color-syntax-name: #c0caf5;
+  --color-syntax-function: #7aa2f7;
+  --color-syntax-constant: #ff9e64;
+  --color-syntax-type: #2ac3de;
+  --color-syntax-operator: #89ddff;
+  --color-syntax-comment: #565f89;
+  --color-syntax-string: #9ece6a;
+  --color-syntax-invalid: #db4b4b;
+
+  --color-red-200: #ffc2cc;
+  --color-red-300: #ff9bae;
+  --color-red-400: #f7768e;
+  --color-red-500: #db4b4b;
+  --color-red-700: #a83a4a;
+  --color-red-800: #7a2c3a;
+  --color-red-900: #4a2030;
+  /* one green family, as Tailwind's emerald shades are one hue */
+  --color-emerald-400: #b3dc8c;
+  --color-emerald-500: #9ece6a;
+  --color-emerald-600: #87b55a;
+  --color-emerald-700: #6f964a;
+  --color-emerald-900: #2a3d1f;
+  --color-amber-400: #e0af68;
+  --color-amber-500: #e0af68;
+  --color-yellow-300: #e8c88a;
+  --color-yellow-400: #e0af68;
+
+  color-scheme: dark;
+}

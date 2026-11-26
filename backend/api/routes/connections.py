@@ -26,6 +26,9 @@ class ConnectionIn(BaseModel):
     user: str = "postgres"
     password: str = ""
     sslmode: str = "prefer"
+    ssl_cert: str = ""
+    ssl_key: str = ""
+    ssl_root_cert: str = ""
     color: str = ""
 
 
@@ -44,15 +47,27 @@ class ConnectionOut(BaseModel):
     dbname: str
     user: str
     sslmode: str
+    ssl_cert: str
+    ssl_key: str
+    ssl_root_cert: str
     color: str
     connected: bool
+
+
+def _store_secret(row: ConnectionRow, body: ConnectionIn) -> None:
+    # A certificate login must not also send a stored password: some engines
+    # refuse a connection that offers both.
+    if body.ssl_cert:
+        conn_secrets.delete_password(row.to_profile())
+    elif body.password:
+        conn_secrets.set_password(row.to_profile(), body.password)
 
 
 def _to_out(row: ConnectionRow) -> ConnectionOut:
     return ConnectionOut(
         id=row.id, name=row.name, kind=row.kind, host=row.host, port=row.port, dbname=row.dbname,
-        user=row.user, sslmode=row.sslmode, color=row.color,
-        connected=deps.is_connected(row.id),
+        user=row.user, sslmode=row.sslmode, ssl_cert=row.ssl_cert, ssl_key=row.ssl_key,
+        ssl_root_cert=row.ssl_root_cert, color=row.color, connected=deps.is_connected(row.id),
     )
 
 
@@ -68,9 +83,10 @@ def test_connection(body: ConnectionTestIn) -> dict:
     profile = ConnectionProfile(
         id=body.id or "test", name=body.name, kind=body.kind, host=body.host, port=body.port,
         dbname=body.dbname, user=body.user, sslmode=body.sslmode,
+        ssl_cert=body.ssl_cert, ssl_key=body.ssl_key, ssl_root_cert=body.ssl_root_cert,
     )
     password = body.password or None
-    if not password and body.id:
+    if not password and body.id and not body.ssl_cert:
         password = conn_secrets.get_password(profile)
     try:
         version = get_dialect(profile.kind).probe(profile, password)
@@ -83,13 +99,13 @@ def test_connection(body: ConnectionTestIn) -> dict:
 def create_connection(body: ConnectionIn, s: Session = Depends(get_session)) -> ConnectionOut:
     row = ConnectionRow(
         name=body.name, kind=body.kind, host=body.host, port=body.port, dbname=body.dbname,
-        user=body.user, sslmode=body.sslmode, color=body.color,
+        user=body.user, sslmode=body.sslmode, ssl_cert=body.ssl_cert, ssl_key=body.ssl_key,
+        ssl_root_cert=body.ssl_root_cert, color=body.color,
     )
     s.add(row)
     s.commit()
     s.refresh(row)
-    if body.password:
-        conn_secrets.set_password(row.to_profile(), body.password)
+    _store_secret(row, body)
     return _to_out(row)
 
 
@@ -100,14 +116,17 @@ def update_connection(
     row = s.get(ConnectionRow, connection_id)
     if row is None:
         raise HTTPException(404, "Connection not found")
+    if body.kind != row.kind:
+        # The open pools speak the old engine; the next connect opens new ones.
+        deps.disconnect(connection_id)
     row.name, row.kind, row.host, row.port = body.name, body.kind, body.host, body.port
     row.dbname, row.user, row.sslmode = body.dbname, body.user, body.sslmode
+    row.ssl_cert, row.ssl_key, row.ssl_root_cert = body.ssl_cert, body.ssl_key, body.ssl_root_cert
     row.color = body.color
     s.add(row)
     s.commit()
     s.refresh(row)
-    if body.password:
-        conn_secrets.set_password(row.to_profile(), body.password)
+    _store_secret(row, body)
     return _to_out(row)
 
 

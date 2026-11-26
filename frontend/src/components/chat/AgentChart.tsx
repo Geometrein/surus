@@ -10,13 +10,10 @@ import {
 } from "recharts";
 import { api, type QueryResult } from "../../api/client";
 import { formatCount } from "../../utils";
+import { chartColor, chartTooltipStyle, color } from "../../lib/theme";
+import { useTheme } from "../../hooks/useTheme";
 import type { ChartSpec } from "./shared";
 
-const PALETTE = ["#6aa3e8", "#ae84cb", "#52a06a", "#e88c6a", "#e8c86a", "#6ae8d4", "#e86a9c", "#a0c0e8"];
-const TOOLTIP = {
-  contentStyle: { background: "#1f1f24", border: "1px solid #2c2c33", borderRadius: 6, fontSize: 12 },
-  labelStyle: { color: "#c8c8d0" },
-};
 // Cap the rows we pull for a chart — the agent is told to pre-aggregate, and a
 // chart with thousands of points is unreadable anyway.
 const MAX_ROWS = 2000;
@@ -59,6 +56,7 @@ function buildSeries(result: QueryResult, spec: ChartSpec): { data: Record<strin
 }
 
 export function AgentChart({ connectionId, sql, spec }: { connectionId: string | null; sql: string; spec: ChartSpec }) {
+  useTheme();
   const q = useQuery({
     queryKey: ["agent-chart", connectionId, sql],
     queryFn: () => api.runQuery(connectionId!, sql, MAX_ROWS),
@@ -86,7 +84,7 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
     canvas.height = height * scale;
     const ctx = canvas.getContext("2d")!;
     ctx.scale(scale, scale);
-    ctx.fillStyle = "#1b1b1f";
+    ctx.fillStyle = color("panel");
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(img, 0, 0, width, height);
     URL.revokeObjectURL(url);
@@ -112,9 +110,9 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={pie} dataKey="value" nameKey="name" outerRadius="80%" label>
-              {pie.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+              {pie.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}
             </Pie>
-            <Tooltip {...TOOLTIP} />
+            <Tooltip {...chartTooltipStyle()} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </PieChart>
         </ResponsiveContainer>
@@ -128,11 +126,11 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
       return (
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
-            <CartesianGrid stroke="#2c2c33" />
-            <XAxis type="number" dataKey="x" name={spec.x} tick={AXIS} stroke="#3a3a42" />
-            <YAxis type="number" dataKey="y" name={spec.y[0]} tick={AXIS} stroke="#3a3a42" tickFormatter={(v) => formatCount(Number(v))} />
-            <Tooltip {...TOOLTIP} cursor={{ stroke: "#3a3a42" }} />
-            <Scatter data={pts} fill={PALETTE[0]} />
+            <CartesianGrid stroke={color("line")} />
+            <XAxis type="number" dataKey="x" name={spec.x} tick={{ fontSize: 11, fill: color("subtle") }} stroke={color("line-strong")} />
+            <YAxis type="number" dataKey="y" name={spec.y[0]} tick={{ fontSize: 11, fill: color("subtle") }} stroke={color("line-strong")} tickFormatter={(v) => formatCount(Number(v))} />
+            <Tooltip {...chartTooltipStyle()} cursor={{ stroke: color("line-strong") }} />
+            <Scatter data={pts} fill={chartColor(0)} />
           </ScatterChart>
         </ResponsiveContainer>
       );
@@ -142,10 +140,10 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
     if (!data.length || !keys.length) return <Placeholder text="Chart columns not found in the result." error />;
     const common = (
       <>
-        <CartesianGrid stroke="#2c2c33" vertical={false} />
-        <XAxis dataKey="x" tick={AXIS} stroke="#3a3a42" />
-        <YAxis tick={AXIS} stroke="#3a3a42" tickFormatter={(v) => formatCount(Number(v))} />
-        <Tooltip {...TOOLTIP} cursor={{ fill: "#ffffff08" }} />
+        <CartesianGrid stroke={color("line")} vertical={false} />
+        <XAxis dataKey="x" tick={{ fontSize: 11, fill: color("subtle") }} stroke={color("line-strong")} />
+        <YAxis tick={{ fontSize: 11, fill: color("subtle") }} stroke={color("line-strong")} tickFormatter={(v) => formatCount(Number(v))} />
+        <Tooltip {...chartTooltipStyle()} cursor={{ fill: "#ffffff08" }} />
         {keys.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
       </>
     );
@@ -154,7 +152,7 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
             {common}
-            {keys.map((k, i) => <Bar key={k} dataKey={k} fill={PALETTE[i % PALETTE.length]} />)}
+            {keys.map((k, i) => <Bar key={k} dataKey={k} fill={chartColor(i)} />)}
           </BarChart>
         </ResponsiveContainer>
       );
@@ -164,7 +162,7 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
           <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
             {common}
             {keys.map((k, i) => (
-              <Area key={k} dataKey={k} stroke={PALETTE[i % PALETTE.length]} fill={PALETTE[i % PALETTE.length]} fillOpacity={0.25} />
+              <Area key={k} dataKey={k} stroke={chartColor(i)} fill={chartColor(i)} fillOpacity={0.25} />
             ))}
           </AreaChart>
         </ResponsiveContainer>
@@ -173,18 +171,18 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
           {common}
-          {keys.map((k, i) => <Line key={k} dataKey={k} stroke={PALETTE[i % PALETTE.length]} dot={false} strokeWidth={2} />)}
+          {keys.map((k, i) => <Line key={k} dataKey={k} stroke={chartColor(i)} dot={false} strokeWidth={2} />)}
         </LineChart>
       </ResponsiveContainer>
     );
   })();
 
   return (
-    <div className="group/chart mt-1 bg-[#1b1b1f] border border-[#2c2c33] rounded-lg overflow-hidden">
+    <div className="group/chart mt-1 bg-panel border border-line rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 pt-2">
-        <span className="flex-1 text-xs font-medium text-[#c8c8d0] truncate">{spec.title ?? ""}</span>
+        <span className="flex-1 text-xs font-medium text-body truncate">{spec.title ?? ""}</span>
         <button
-          className="shrink-0 flex items-center gap-1 text-[11px] text-[#6a6a72] hover:text-[#c8c8d0] opacity-0 group-hover/chart:opacity-100 transition-opacity disabled:opacity-30"
+          className="shrink-0 flex items-center gap-1 text-[11px] text-muted hover:text-body opacity-0 group-hover/chart:opacity-100 transition-opacity disabled:opacity-30"
           title="Export as PNG"
           onClick={exportPng}
           disabled={!q.data || q.data.rows.length === 0}
@@ -197,11 +195,10 @@ export function AgentChart({ connectionId, sql, spec }: { connectionId: string |
   );
 }
 
-const AXIS = { fontSize: 11, fill: "#8a8a92" };
 
 function Placeholder({ text, error }: { text: string; error?: boolean }) {
   return (
-    <div className={`h-full flex items-center justify-center text-xs ${error ? "text-red-400" : "text-[#6a6a72]"}`}>
+    <div className={`h-full flex items-center justify-center text-xs ${error ? "text-red-400" : "text-muted"}`}>
       {text}
     </div>
   );

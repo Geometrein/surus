@@ -11,35 +11,35 @@ export function ChatPanel({ onCollapse }: { onCollapse: () => void }) {
   const chat = useChatController({ defaultMode: "sql", watchPendingMessage: true });
 
   return (
-    <aside className="w-full h-full flex flex-col bg-[#131316] border-l border-[#2c2c33] min-h-0 min-w-0">
+    <aside className="w-full h-full flex flex-col bg-sunken border-l border-line min-h-0 min-w-0">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 h-9 shrink-0 bg-[#1f1f24] border-b border-[#2c2c33]">
+      <div className="flex items-center gap-2 px-3 h-9 shrink-0 bg-raised border-b border-line">
         <img src="/surus_logo.png" alt="" className="h-4 w-4 rounded" />
         <span className="font-semibold text-sm">SQL agent</span>
         <div className="flex-1" />
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] flex items-center gap-1 text-xs"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line flex items-center gap-1 text-xs"
           title="New chat"
           onClick={chat.startNewChat}
         >
           <Plus size={14} /> New
         </button>
         <button
-          className={`p-1 rounded hover:bg-[#2c2c33] flex items-center ${chat.showHistory ? "text-white bg-[#2c2c33]" : "text-[#8a8a92] hover:text-white"}`}
+          className={`p-1 rounded hover:bg-line flex items-center ${chat.showHistory ? "text-white bg-line" : "text-subtle hover:text-white"}`}
           title="Chat history"
           onClick={() => chat.setShowHistory((v) => !v)}
         >
           <History size={14} />
         </button>
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] flex items-center"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line flex items-center"
           title="API key settings"
           onClick={chat.openKeySettings}
         >
           <KeyRound size={14} />
         </button>
         <button
-          className="text-[#8a8a92] hover:text-white p-1 rounded hover:bg-[#2c2c33] flex items-center"
+          className="text-subtle hover:text-white p-1 rounded hover:bg-line flex items-center"
           title="Collapse agent panel"
           onClick={onCollapse}
         >

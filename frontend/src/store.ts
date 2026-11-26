@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { applyTheme, DEFAULT_THEME, isTheme } from "./lib/themes";
 import type { QueryLogEntry } from "./api/client";
 import type { ActivityKind } from "./utils";
 
@@ -56,6 +57,8 @@ interface AppState {
   writeMode: boolean;
   // Display timezone for timestamps (logs, chat). "" = the browser's timezone.
   timezone: string;
+  // Colour theme id (see lib/themes).
+  theme: string;
 
   setActiveConnection: (id: string | null, version?: string | null) => void;
   setStatsConnection: (id: string | null) => void;
@@ -82,6 +85,7 @@ interface AppState {
   setPendingChatMessage: (msg: string | null) => void;
   setWriteMode: (v: boolean) => void;
   setTimezone: (tz: string) => void;
+  setTheme: (theme: string) => void;
 }
 
 // Persisted schema-diagram preferences. Every localStorage access is wrapped:
@@ -111,6 +115,7 @@ function saveBool(key: string, value: boolean): void {
 // Display timezone: "" means "use the browser's timezone". Persisted so the
 // choice survives reloads (a plain preference, so localStorage not the backend).
 const TIMEZONE_KEY = "surus:timezone";
+const THEME_KEY = "surus:theme";
 
 function loadStr(key: string, fallback: string): string {
   try {
@@ -144,6 +149,12 @@ function saveDiagramHidden(connectionId: string | null, schemas: string[]): void
   } catch { /* ignore */ }
 }
 
+// Applied at load, before the first render, so the page never flashes the
+// default colours.
+const savedTheme = loadStr(THEME_KEY, DEFAULT_THEME);
+const initialTheme = isTheme(savedTheme) ? savedTheme : DEFAULT_THEME;
+applyTheme(initialTheme);
+
 export const useStore = create<AppState>((set, get) => ({
   activeConnectionId: null,
   serverVersion: null,
@@ -168,6 +179,7 @@ export const useStore = create<AppState>((set, get) => ({
   pendingChatMessage: null,
   writeMode: false,
   timezone: loadStr(TIMEZONE_KEY, ""),
+  theme: initialTheme,
 
   setActiveConnection: (id, version = null) =>
     // Reload this connection's persisted hidden-schema filter as we switch, and
@@ -262,4 +274,10 @@ export const useStore = create<AppState>((set, get) => ({
   setPendingChatMessage: (pendingChatMessage) => set({ pendingChatMessage }),
   setWriteMode: (writeMode) => set({ writeMode }),
   setTimezone: (timezone) => { saveStr(TIMEZONE_KEY, timezone); set({ timezone }); },
+  setTheme: (theme) => {
+    if (!isTheme(theme)) return;
+    saveStr(THEME_KEY, theme);
+    applyTheme(theme);
+    set({ theme });
+  },
 }));

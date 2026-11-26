@@ -18,20 +18,17 @@ if TYPE_CHECKING:
     from backend.db.extensions import ExtensionPlugin
 
 # Models offered in the UI, per provider, ordered most to least capable. The
-# default (see DEFAULT_LLM_MODEL) is Haiku 4.5 — cheap and fast enough for most
+# default (see DEFAULT_LLM_MODEL) is Haiku 5.5 — cheap and fast enough for most
 # questions; the larger models are there for when the EXPLAIN→evaluate→iterate
 # loop needs deeper reasoning. These are just the options surfaced in the
 # picker; any model the provider accepts will run.
 MODELS: dict[str, list[str]] = {
-    "anthropic": ["claude-fable-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5"],
+    "anthropic": ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     # The GPT-5.6 family reasons by default, and /v1/chat/completions (see
     # openai_provider) rejects function tools in that state — so they can't be
     # offered until the provider moves to /v1/responses.
     "openai": ["gpt-5", "gpt-5-mini", "gpt-4.1"],
-    "google": [
-        "gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-2.5-pro",
-        "gemini-2.5-flash", "gemini-2.5-flash-lite",
-    ],
+    "google": ["gemini-4-hydrogen", "gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-flash-lite"],
 }
 
 # Human-facing metadata for each provider (label + API-key placeholder), keyed

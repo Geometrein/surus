@@ -1,4 +1,129 @@
 @import "tailwindcss";
+@import "./themes.css";
+
+/* The app's colours, by role. Components use these names (bg-panel,
+   text-muted, ...) instead of colour codes, so a theme only redefines the
+   values. "static" keeps every token in the output, including the ones only
+   read from TypeScript (charts, the diagram, the results grid). */
+@theme static {
+  --color-deep: #0f0f12;
+  --color-sunken: #131316;
+  --color-app: #161619;
+  --color-panel: #1b1b1f;
+  --color-hover: #1d1d22;
+  --color-raised: #1f1f24;
+  --color-raised-hover: #26262d;
+  --color-line: #2c2c33;
+  --color-line-strong: #3a3a42;
+  --color-faint: #4a4a52;
+  --color-dim: #5a5a62;
+  --color-muted: #6a6a72;
+  --color-subtle: #8a8a92;
+  --color-soft: #a0a0a8;
+  --color-body: #c8c8d0;
+  --color-strong: #e2e2e8;
+  --color-accent: #3b6fb5;
+  --color-accent-hover: #4a7fc5;
+  --color-accent-focus: #4a6da8;
+  --color-accent-text: #6aa3e8;
+  --color-accent-text-dim: #5b9bd8;
+  --color-accent-text-strong: #8fb6e8;
+  --color-accent-text-bright: #cfe0f5;
+  --color-accent-bg: #1e3550;
+  --color-accent-bg-dim: #16233a;
+  --color-accent-bg-soft: #24304a;
+  --color-accent-bg-hover: #263d5e;
+  --color-accent-line: #2c4a6e;
+  --color-accent-line-strong: #33557d;
+  --color-accent-arrow: #5a7fb5;
+  --color-accent-arrow-text: #5a8ab0;
+  --color-agent: #ae84cb;
+  --color-agent-soft: #a98fc0;
+  --color-agent-strong: #c9a8ff;
+  --color-agent-strong-soft: #c9a3e0;
+  --color-agent-bg: #2a1a3e;
+  --color-agent-bg-soft: #2a1e33;
+  --color-agent-bg-strong: #3a2f55;
+  --color-agent-line: #5a5aaa;
+  --color-chat-badge: #a9b4e8;
+  --color-chat-badge-bg: #242433;
+  --color-grip-hover: #3d3d50;
+  --color-grip-active: #5a5a80;
+  --color-success: #52a06a;
+  --color-success-bright: #34d399;
+  --color-key: #86c5a8;
+  --color-success-bg: #13291f;
+  --color-success-bg-dim: #1a2a1a;
+  --color-system-bg: #2a3330;
+  --color-danger: #e0564e;
+  --color-danger-hover: #e8665e;
+  --color-danger-soft: #e06a6a;
+  --color-danger-text: #f0a29c;
+  --color-danger-text-strong: #f5b8b2;
+  --color-danger-bg: #2a1010;
+  --color-danger-bg-soft: #3a1a1a;
+  --color-danger-banner: #3a1512;
+  --color-danger-bg-hover: #4a2020;
+  --color-danger-line: #5a2020;
+  --color-danger-solid: #7a2020;
+  --color-danger-solid-hover: #9a2828;
+  --color-warning: #e8c86a;
+  --color-warning-soft: #c9a15f;
+  --color-warning-bg: #2a2010;
+  --color-warning-bg-soft: #2a2510;
+  --color-warning-line: #5a4020;
+  --color-info: #5a9ab0;
+  --color-kind-view: #5fa8a0;
+  --color-code: #a8d8ff;
+  --color-diagram-header: #22293a;
+  --color-diagram-title: #cdd6e8;
+  --color-diagram-meta: #6a7488;
+  --color-diagram-faint: #4a5a72;
+  --color-diagram-edge: #3a4a63;
+  --color-type-number: #5fb0c9;
+  --color-type-text: #8bbf6a;
+  --color-type-time: #d0a355;
+  --color-type-bool: #b088d0;
+  --color-type-collection: #d08a5a;
+  --color-type-geo: #c97fb0;
+  --color-type-id: #8a93b0;
+  --color-chart-1: #6aa3e8;
+  --color-chart-2: #ae84cb;
+  --color-chart-3: #52a06a;
+  --color-chart-4: #e88c6a;
+  --color-chart-5: #e8c86a;
+  --color-chart-6: #6ae8d4;
+  --color-chart-7: #e86a9c;
+  --color-chart-8: #a0c0e8;
+  /* connection colours you pick in the connection dialog */
+  --color-swatch-1: #c2554f;
+  --color-swatch-2: #c47f3d;
+  --color-swatch-3: #b9a23f;
+  --color-swatch-4: #4f9d63;
+  --color-swatch-5: #3a9a92;
+  --color-swatch-6: #4a7fc5;
+  --color-swatch-7: #8266c4;
+  --color-swatch-8: #b85e94;
+  /* SQL editor; the defaults are CodeMirror's One Dark */
+  --color-editor-bg: #282c34;
+  --color-editor-panel: #21252b;
+  --color-editor-text: #abb2bf;
+  --color-editor-gutter-text: #7d8799;
+  --color-editor-active-gutter: #2c313a;
+  --color-editor-tooltip: #353a42;
+  --color-editor-selection: #3e4451;
+  --color-editor-cursor: #528bff;
+  --color-syntax-keyword: #c678dd;
+  --color-syntax-name: #e06c75;
+  --color-syntax-function: #61afef;
+  --color-syntax-constant: #d19a66;
+  --color-syntax-type: #e5c07b;
+  --color-syntax-operator: #56b6c2;
+  --color-syntax-comment: #7d8799;
+  --color-syntax-string: #98c379;
+  --color-syntax-invalid: #ffffff;
+}
+
 
 :root {
   color-scheme: dark;
@@ -22,8 +147,8 @@ body,
 }
 
 body {
-  background: #161619;
-  color: #e2e2e8;
+  background: var(--color-app);
+  color: var(--color-strong);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
 }
@@ -33,7 +158,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #33333a;
+  background: var(--color-line-strong);
   border-radius: 5px;
 }
 ::-webkit-scrollbar-track {
@@ -43,7 +168,7 @@ body {
 /* Markdown rendering inside the chat panel */
 .prose-chat p { margin-bottom: 0.4rem; overflow-wrap: anywhere; }
 .prose-chat p:last-child { margin-bottom: 0; }
-.prose-chat strong { font-weight: 600; color: #e2e2e8; }
+.prose-chat strong { font-weight: 600; color: var(--color-strong); }
 .prose-chat em { font-style: italic; }
 .prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.6rem 0 0.2rem; }
 .prose-chat h1 { font-size: 1.05em; }
@@ -51,11 +176,11 @@ body {
 .prose-chat ul { list-style: disc; padding-left: 1.2rem; margin: 0.3rem 0; }
 .prose-chat ol { list-style: decimal; padding-left: 1.2rem; margin: 0.3rem 0; }
 .prose-chat li { margin: 0.15rem 0; }
-.prose-chat blockquote { border-left: 2px solid #3a3a42; padding-left: 0.6rem; color: #8a8a92; margin: 0.3rem 0; }
-.prose-chat a { color: #6aa3e8; text-decoration: underline; }
-.prose-chat code { font-family: ui-monospace, "SF Mono", Menlo, monospace; background: #0f0f12; color: #a8d8ff; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.82em; overflow-wrap: anywhere; }
-.prose-chat pre { background: #0f0f12; border: 1px solid #2c2c33; border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; max-width: 100%; overflow-x: auto; }
-.prose-chat pre code { background: none; color: #e2e2e8; padding: 0; font-size: 0.8rem; white-space: pre; overflow-wrap: normal; word-break: normal; }
+.prose-chat blockquote { border-left: 2px solid var(--color-line-strong); padding-left: 0.6rem; color: var(--color-subtle); margin: 0.3rem 0; }
+.prose-chat a { color: var(--color-accent-text); text-decoration: underline; }
+.prose-chat code { font-family: ui-monospace, "SF Mono", Menlo, monospace; background: var(--color-deep); color: var(--color-code); padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.82em; overflow-wrap: anywhere; }
+.prose-chat pre { background: var(--color-deep); border: 1px solid var(--color-line); border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; max-width: 100%; overflow-x: auto; }
+.prose-chat pre code { background: none; color: var(--color-strong); padding: 0; font-size: 0.8rem; white-space: pre; overflow-wrap: normal; word-break: normal; }
 .prose-chat table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
-.prose-chat th { background: #1f1f24; color: #c8c8d0; font-weight: 600; text-align: left; padding: 0.3rem 0.6rem; border: 1px solid #2c2c33; }
-.prose-chat td { color: #a0a0a8; padding: 0.25rem 0.6rem; border: 1px solid #2c2c33; }
+.prose-chat th { background: var(--color-raised); color: var(--color-body); font-weight: 600; text-align: left; padding: 0.3rem 0.6rem; border: 1px solid var(--color-line); }
+.prose-chat td { color: var(--color-soft); padding: 0.25rem 0.6rem; border: 1px solid var(--color-line); }

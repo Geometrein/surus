@@ -6,14 +6,11 @@ import {
 } from "recharts";
 import type { QueryResult } from "../api/client";
 import { formatCount } from "../utils";
+import { chartColor, chartTooltipStyle, color } from "../lib/theme";
+import { useTheme } from "../hooks/useTheme";
 
 type ChartType = "bar" | "line" | "scatter" | "pie";
 type AggFunc  = "none" | "sum" | "avg" | "count" | "min" | "max";
-
-const PALETTE = [
-  "#6aa3e8", "#ae84cb", "#52a06a", "#e88c6a",
-  "#e8c86a", "#6ae8d4", "#e86a9c", "#a0c0e8",
-];
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -181,15 +178,11 @@ function buildPie(
 
 // ── component ──────────────────────────────────────────────────────────────
 
-const TOOLTIP_STYLE = {
-  contentStyle: { background: "#1f1f24", border: "1px solid #2c2c33", borderRadius: 6, fontSize: 12 },
-  labelStyle: { color: "#c8c8d0" },
-};
-
-const AXIS_TICK  = { fill: "#6a6a72", fontSize: 11 };
-const AXIS_LABEL = { fill: "#6a6a72", fontSize: 10 };
-
 export function ChartView({ result }: { result: QueryResult }) {
+  useTheme();
+  const TOOLTIP_STYLE = chartTooltipStyle();
+  const AXIS_TICK  = { fill: color("muted"), fontSize: 11 };
+  const AXIS_LABEL = { fill: color("muted"), fontSize: 10 };
   const { columns, rows } = result;
   const [chartType, setChartType] = useState<ChartType>("line");
   const [xCol,    setXCol]    = useState("");
@@ -274,7 +267,7 @@ export function ChartView({ result }: { result: QueryResult }) {
     canvas.height = height * scale;
     const ctx = canvas.getContext("2d")!;
     ctx.scale(scale, scale);
-    ctx.fillStyle = "#161619";
+    ctx.fillStyle = color("app");
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(img, 0, 0, width, height);
     URL.revokeObjectURL(url);
@@ -284,29 +277,29 @@ export function ChartView({ result }: { result: QueryResult }) {
     a.click();
   }
 
-  const selCls   = "bg-[#1e3550] text-[#6aa3e8] border-[#2a4a6a]";
-  const unselCls = "text-[#8a8a92] hover:text-white border-[#2c2c33]";
-  const dropCls  = "bg-[#131316] border border-[#2c2c33] rounded px-2 py-1 text-xs text-[#c8c8d0] outline-none focus:border-[#3b6fb5]";
+  const selCls   = "bg-accent-bg text-accent-text border-accent-line";
+  const unselCls = "text-subtle hover:text-white border-line";
+  const dropCls  = "bg-sunken border border-line rounded px-2 py-1 text-xs text-body outline-none focus:border-accent";
 
   const rightMargin = rightAxisActive ? 64 : 16;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-[#161619]">
+    <div className="flex flex-col h-full min-h-0 bg-app">
       {/* ── Controls ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[#2c2c33] bg-[#1f1f24] shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-raised shrink-0 flex-wrap">
         {/* Chart type pills */}
-        <div className="flex rounded overflow-hidden border border-[#2c2c33]">
+        <div className="flex rounded overflow-hidden border border-line">
           {(["line", "bar", "scatter", "pie"] as ChartType[]).map((t) => (
             <button key={t} onClick={() => setChartType(t)}
-              className={`px-3 py-1 text-xs capitalize transition-colors border-r border-[#2c2c33] last:border-r-0 ${chartType === t ? selCls : unselCls}`}>
+              className={`px-3 py-1 text-xs capitalize transition-colors border-r border-line last:border-r-0 ${chartType === t ? selCls : unselCls}`}>
               {t}
             </button>
           ))}
         </div>
 
-        <div className="w-px h-4 bg-[#2c2c33]" />
+        <div className="w-px h-4 bg-line" />
 
-        <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72]">
+        <label className="flex items-center gap-1.5 text-[11px] text-muted">
           X
           <select value={xCol} onChange={(e) => setXCol(e.target.value)} className={dropCls}>
             <option value="">—</option>
@@ -314,7 +307,7 @@ export function ChartView({ result }: { result: QueryResult }) {
           </select>
         </label>
 
-        <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72]">
+        <label className="flex items-center gap-1.5 text-[11px] text-muted">
           Y
           <select value={yCol} onChange={(e) => setYCol(e.target.value)} className={dropCls}>
             <option value="">—</option>
@@ -324,7 +317,7 @@ export function ChartView({ result }: { result: QueryResult }) {
 
         {/* Y2 — only bar/line without groupBy */}
         {(chartType === "bar" || chartType === "line") && !groupCol && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72]">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted">
             Y2
             <select value={y2Col} onChange={(e) => { setY2Col(e.target.value); if (!e.target.value) setDualAxis(false); }} className={dropCls}>
               <option value="">—</option>
@@ -337,15 +330,15 @@ export function ChartView({ result }: { result: QueryResult }) {
 
         {/* Dual axis checkbox — only when Y2 is selected */}
         {y2Active && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72] cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted cursor-pointer select-none">
             <input type="checkbox" checked={dualAxis} onChange={(e) => setDualAxis(e.target.checked)}
-              className="accent-[#3b6fb5]" />
+              className="accent-accent" />
             dual axis
           </label>
         )}
 
         {chartType !== "scatter" && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72]">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted">
             Agg
             <select value={fn} onChange={(e) => setFn(e.target.value as AggFunc)} className={dropCls}>
               {(["none", "sum", "avg", "count", "min", "max"] as AggFunc[]).map((a) => (
@@ -356,7 +349,7 @@ export function ChartView({ result }: { result: QueryResult }) {
         )}
 
         {chartType !== "pie" && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72]">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted">
             Group by
             <select value={groupBy} onChange={(e) => { setGroupBy(e.target.value); setY2Col(""); }} className={dropCls}>
               <option value="">—</option>
@@ -369,30 +362,30 @@ export function ChartView({ result }: { result: QueryResult }) {
 
         {/* Per-axis log scale — bar/line/scatter only */}
         {chartType !== "pie" && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72] cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted cursor-pointer select-none">
             <input type="checkbox" checked={logLeft} onChange={(e) => setLogLeft(e.target.checked)}
-              className="accent-[#3b6fb5]" />
+              className="accent-accent" />
             {rightAxisActive ? "log L" : "log Y"}
           </label>
         )}
         {rightAxisActive && (
-          <label className="flex items-center gap-1.5 text-[11px] text-[#6a6a72] cursor-pointer select-none">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted cursor-pointer select-none">
             <input type="checkbox" checked={logRight} onChange={(e) => setLogRight(e.target.checked)}
-              className="accent-[#3b6fb5]" />
+              className="accent-accent" />
             log R
           </label>
         )}
 
         {/* Show badge when date auto-format is active */}
         {xFormatter && (
-          <span className="text-[10px] text-[#6a6a72] border border-[#2c2c33] rounded px-1.5 py-0.5">
+          <span className="text-[10px] text-muted border border-line rounded px-1.5 py-0.5">
             date axis
           </span>
         )}
 
         <div className="ml-auto">
           <button onClick={exportPng} disabled={empty}
-            className="px-2.5 py-1 rounded text-xs text-[#a0a0a8] hover:bg-[#26262d] disabled:opacity-40 flex items-center gap-1.5 border border-[#2c2c33]"
+            className="px-2.5 py-1 rounded text-xs text-soft hover:bg-raised-hover disabled:opacity-40 flex items-center gap-1.5 border border-line"
             title="Export chart as PNG">
             ↓ PNG
           </button>
@@ -402,14 +395,14 @@ export function ChartView({ result }: { result: QueryResult }) {
       {/* ── Chart ── */}
       <div ref={chartRef} className="flex-1 min-h-0 p-4">
         {empty ? (
-          <div className="h-full flex items-center justify-center text-sm text-[#6a6a72]">
+          <div className="h-full flex items-center justify-center text-sm text-muted">
             No numeric data to chart — adjust the axis selections above.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             {chartType === "bar" ? (
               <BarChart data={data} margin={{ top: 4, right: rightMargin, bottom: 52, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2c2c33" />
+                <CartesianGrid strokeDasharray="3 3" stroke={color("line")} />
                 <XAxis dataKey="x" tick={AXIS_TICK} angle={-35} textAnchor="end" interval="preserveStartEnd"
                   tickFormatter={xFormatter ?? undefined} />
                 <YAxis yAxisId="left" tick={AXIS_TICK} tickFormatter={fmt} width={68}
@@ -423,19 +416,19 @@ export function ChartView({ result }: { result: QueryResult }) {
                     label={{ ...AXIS_LABEL, value: y2Col, angle: 90, position: "insideRight" }} />
                 )}
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [fmt(v), ""]} />
-                {(series.length > 1 || y2Active) && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, color: "#8a8a92", paddingBottom: 8 }} />}
+                {(series.length > 1 || y2Active) && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, color: color("subtle"), paddingBottom: 8 }} />}
                 {series.map((s, i) => (
-                  <Bar key={s} yAxisId="left" dataKey={s} fill={PALETTE[i % PALETTE.length]} radius={[2, 2, 0, 0]} maxBarSize={48} />
+                  <Bar key={s} yAxisId="left" dataKey={s} fill={chartColor(i)} radius={[2, 2, 0, 0]} maxBarSize={48} />
                 ))}
                 {y2Active && (
                   <Bar yAxisId={rightAxisActive ? "right" : "left"} dataKey="__y2" name={y2Col}
-                    fill={PALETTE[series.length % PALETTE.length]}
+                    fill={chartColor(series.length)}
                     radius={[2, 2, 0, 0]} maxBarSize={48} opacity={0.75} />
                 )}
               </BarChart>
             ) : chartType === "line" ? (
               <LineChart data={data} margin={{ top: 4, right: rightMargin, bottom: 52, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2c2c33" />
+                <CartesianGrid strokeDasharray="3 3" stroke={color("line")} />
                 <XAxis dataKey="x" tick={AXIS_TICK} angle={-35} textAnchor="end" interval="preserveStartEnd"
                   tickFormatter={xFormatter ?? undefined} />
                 <YAxis yAxisId="left" tick={AXIS_TICK} tickFormatter={fmt} width={68}
@@ -449,39 +442,39 @@ export function ChartView({ result }: { result: QueryResult }) {
                     label={{ ...AXIS_LABEL, value: y2Col, angle: 90, position: "insideRight" }} />
                 )}
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [fmt(v), ""]} />
-                {(series.length > 1 || y2Active) && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, color: "#8a8a92", paddingBottom: 8 }} />}
+                {(series.length > 1 || y2Active) && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, color: color("subtle"), paddingBottom: 8 }} />}
                 {series.map((s, i) => (
-                  <Line key={s} yAxisId="left" dataKey={s} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2} dot={data.length < 80} />
+                  <Line key={s} yAxisId="left" dataKey={s} stroke={chartColor(i)} strokeWidth={2} dot={data.length < 80} />
                 ))}
                 {y2Active && (
                   <Line yAxisId={rightAxisActive ? "right" : "left"} dataKey="__y2" name={y2Col}
-                    stroke={PALETTE[series.length % PALETTE.length]} strokeWidth={2}
+                    stroke={chartColor(series.length)} strokeWidth={2}
                     strokeDasharray="5 3" dot={data.length < 80} />
                 )}
               </LineChart>
             ) : chartType === "scatter" ? (
               <ScatterChart margin={{ top: 4, right: 16, bottom: 28, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2c2c33" />
+                <CartesianGrid strokeDasharray="3 3" stroke={color("line")} />
                 <XAxis dataKey="x" type="number" name={xCol} tick={AXIS_TICK} tickFormatter={fmt} />
                 <YAxis dataKey="y" type="number" name={yCol} tick={AXIS_TICK} tickFormatter={fmt} width={68}
                   scale={logLeft ? "log" : "auto"} allowDataOverflow={logLeft}
                   domain={logLeft ? [(d: number) => (d > 0 ? d : 1), "auto"] : undefined}
                   label={{ ...AXIS_LABEL, value: yCol, angle: -90, position: "insideLeft" }} />
                 <Tooltip {...TOOLTIP_STYLE} cursor={{ strokeDasharray: "3 3" }} formatter={(v) => [fmt(v), ""]} />
-                {scatterSeries.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#8a8a92" }} />}
+                {scatterSeries.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: color("subtle") }} />}
                 {scatterSeries.map((s, i) => (
-                  <Scatter key={s.name} name={s.name} data={s.data} fill={PALETTE[i % PALETTE.length]} opacity={0.7} />
+                  <Scatter key={s.name} name={s.name} data={s.data} fill={chartColor(i)} opacity={0.7} />
                 ))}
               </ScatterChart>
             ) : (
               <PieChart>
                 <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%"
                   label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(1)}%`}
-                  labelLine={{ stroke: "#6a6a72" }}>
-                  {pieData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                  labelLine={{ stroke: color("muted") }}>
+                  {pieData.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}
                 </Pie>
                 <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [fmt(v), ""]} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#8a8a92" }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: color("subtle") }} />
               </PieChart>
             )}
           </ResponsiveContainer>

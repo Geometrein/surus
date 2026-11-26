@@ -37,7 +37,7 @@ class _FakeModels:
 
 
 def _provider_with(queue, monkeypatch, tool_result=("PLAN", False)):
-    p = GeminiProvider(api_key="sk-test", model="gemini-3.5-flash", pool=None)
+    p = GeminiProvider(api_key="sk-test", model="gemini-4-hydrogen", pool=None)
     p._system_text = "sys"  # skip DB-backed _system()
     p.client = SimpleNamespace(models=_FakeModels(queue))
     import backend.agent.gemini_provider as gp

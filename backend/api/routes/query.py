@@ -13,7 +13,6 @@ from sqlmodel import Session
 
 from backend.api import deps
 from backend.api.routes.settings import get_preview_row_limit
-from backend.db import query as q
 from backend.db import querylog
 from backend.store.db import get_session
 
@@ -80,14 +79,14 @@ def cancel_query(connection_id: str) -> dict:
     The dialect cancels via a one-off connection (not from the pool) so we can
     never deadlock waiting for a pool slot the running query already holds.
     """
-    pid = q.get_running_pid(connection_id)
-    if pid is None:
-        return {"ok": False, "reason": "no running query"}
     db = deps.get_database(connection_id)
     try:
-        return {"ok": db.cancel(pid)}
+        cancelled = db.cancel(connection_id)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Cancel failed: {exc}")
+    if cancelled is None:
+        return {"ok": False, "reason": "no running query"}
+    return {"ok": cancelled}
 
 
 @router.post("/explain")

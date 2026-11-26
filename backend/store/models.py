@@ -39,6 +39,9 @@ class ConnectionRow(SQLModel, table=True):
     dbname: str = "postgres"
     user: str = "postgres"
     sslmode: str = "prefer"
+    ssl_cert: str = ""
+    ssl_key: str = ""
+    ssl_root_cert: str = ""
     color: str = ""  # cosmetic accent; "" = none, otherwise a hex like "#4a8fe0"
     created_at: datetime = Field(default_factory=_now)
 
@@ -46,6 +49,7 @@ class ConnectionRow(SQLModel, table=True):
         return ConnectionProfile(
             id=self.id, name=self.name, kind=self.kind, host=self.host, port=self.port,
             dbname=self.dbname, user=self.user, sslmode=self.sslmode,
+            ssl_cert=self.ssl_cert, ssl_key=self.ssl_key, ssl_root_cert=self.ssl_root_cert,
         )
 
 

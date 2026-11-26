@@ -17,16 +17,16 @@ def _provider(model="claude-haiku-4-5") -> AnthropicProvider:
 
 
 def test_models_lists_provider_options():
-    assert "claude-opus-5" in MODELS["anthropic"]
-    assert "claude-opus-4-8" in MODELS["anthropic"]
+    assert "claude-opus-5-5" in MODELS["anthropic"]
+    assert "claude-haiku-5-5" in MODELS["anthropic"]
     assert "gpt-5" in MODELS["openai"]
-    assert "gemini-3.5-flash" in MODELS["google"]
+    assert "gemini-4-hydrogen" in MODELS["google"]
 
 
 def test_provider_for_model_resolves_by_list_then_prefix():
-    assert provider_for_model("claude-opus-4-8") == "anthropic"
+    assert provider_for_model("claude-opus-5-5") == "anthropic"
     assert provider_for_model("gpt-5") == "openai"
-    assert provider_for_model("gemini-3.5-flash") == "google"
+    assert provider_for_model("gemini-4-hydrogen") == "google"
     # Unknown ids fall back to a known prefix.
     assert provider_for_model("gpt-4o-mini") == "openai"
     assert provider_for_model("claude-future") == "anthropic"
@@ -41,7 +41,7 @@ def test_agent_event_defaults():
 
 
 def test_build_provider_returns_anthropic():
-    p = build_provider("anthropic", "sk-test", "claude-opus-4-8", pool=None)
+    p = build_provider("anthropic", "sk-test", "claude-opus-5-5", pool=None)
     assert isinstance(p, AnthropicProvider)
 
 
@@ -51,7 +51,7 @@ def test_build_provider_returns_openai():
 
 
 def test_build_provider_returns_gemini():
-    p = build_provider("google", "sk-test", "gemini-3.5-flash", pool=None)
+    p = build_provider("google", "sk-test", "gemini-4-hydrogen", pool=None)
     assert isinstance(p, GeminiProvider)
 
 
@@ -60,8 +60,10 @@ def test_build_provider_rejects_unknown():
         build_provider("cohere", "sk-test", "command", pool=None)
 
 
-def test_adaptive_thinking_disabled_only_for_haiku():
+def test_adaptive_thinking_off_only_for_older_models():
     assert _provider("claude-haiku-4-5")._supports_adaptive_thinking() is False
+    assert _provider("claude-haiku-5-5")._supports_adaptive_thinking() is True
+    assert _provider("claude-fable-5-2")._supports_adaptive_thinking() is True
     assert _provider("claude-opus-5")._supports_adaptive_thinking() is True
     assert _provider("claude-opus-4-8")._supports_adaptive_thinking() is True
     assert _provider("claude-sonnet-4-6")._supports_adaptive_thinking() is True

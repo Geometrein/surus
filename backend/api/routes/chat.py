@@ -22,6 +22,7 @@ from backend.api import deps
 from backend.api.routes.queries import load_saved_queries
 from backend.api.routes.settings import (
     get_agent_max_steps,
+    get_ai_enabled,
     get_agent_max_tokens,
     get_agent_timeout_sec,
     get_custom_instructions,
@@ -206,6 +207,8 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
     session = s.get(ChatSession, session_id)
     if session is None:
         raise HTTPException(404, "Chat session not found")
+    if not get_ai_enabled(s):
+        raise HTTPException(403, "AI features are turned off in Settings.")
 
     # Serialize sends per session: the provider's history is mutated in place, so
     # a concurrent send would corrupt it. Held across all provider/DB work below.
@@ -229,6 +232,7 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
 
     def worker():
         text_parts: list[str] = []
+        errors: list[str] = []
         steps: list[dict] = []
         try:
             for ev in provider.send(body.content):
@@ -241,17 +245,23 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
                 }
                 if ev.kind == "text":
                     text_parts.append(ev.text)
+                elif ev.kind == "error":
+                    errors.append(ev.text)
                 elif ev.kind in ("tool_call", "tool_result"):
                     steps.append(data)
                 events.put(data)
         except Exception as exc:  # noqa: BLE001
+            errors.append(str(exc))
             events.put({"kind": "error", "text": str(exc)})
         finally:
+            # A turn that only failed is saved with its error, so a reopened
+            # chat explains the gap instead of showing an empty reply.
+            content = "".join(text_parts) or "\n".join(errors)
             with new_session() as ws:
                 ws.add(ChatMessage(
                     session_id=session_id,
                     role="assistant",
-                    content="".join(text_parts),
+                    content=content,
                     steps_json=json.dumps(steps) if steps else None,
                 ))
                 ws.commit()
@@ -269,6 +279,15 @@ def send_message(session_id: str, body: MessageIn, s: Session = Depends(get_sess
             yield f"data: {json.dumps(data)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+def stop_all_runs() -> None:
+    """Halt every agent run at its next checkpoint, e.g. when AI is turned off.
+
+    A model call already in flight completes; no further one starts.
+    """
+    for provider in list(_providers.values()):
+        provider.stop()
 
 
 @router.post("/sessions/{session_id}/stop")

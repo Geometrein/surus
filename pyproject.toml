@@ -1,7 +1,7 @@
 [project]
 name = "surus"
 version = "0.2.0"
-description = "A fast SQL IDE for Postgres with an LLM agent that writes performant SQL"
+description = "SQL client with an optional agentic layer that prioritizes query performance and data safety."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.0",
     "openai>=1.40",
     "google-genai>=1.0",
+    "clickhouse-connect>=1.13.0",
 ]
 
 [project.optional-dependencies]

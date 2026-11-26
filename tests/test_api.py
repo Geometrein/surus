@@ -41,11 +41,11 @@ def test_settings_reports_no_key_then_key(client):
     assert body["hasLlmKey"] is False
     assert {p["id"] for p in body["providers"]} == {"anthropic", "openai", "google"}
     assert all(p["hasKey"] is False for p in body["providers"])
-    assert "claude-opus-4-8" in body["models"]
+    assert "claude-opus-5-5" in body["models"]
     assert "gpt-5" in body["models"]
-    assert "gemini-3.5-flash" in body["models"]
+    assert "gemini-4-hydrogen" in body["models"]
     assert body["modelProviders"]["gpt-5"] == "openai"
-    assert body["modelProviders"]["gemini-3.5-flash"] == "google"
+    assert body["modelProviders"]["gemini-4-hydrogen"] == "google"
     assert body["defaultModel"]
 
     # Setting an OpenAI key flips only that provider's status.
@@ -190,3 +190,37 @@ def test_create_folder_writes_connection_marker(client, tmp_path):
     assert folder["connectionId"] == "conn-9"
     # appears in the folder tree
     assert [f["name"] for f in client.get("/queries/folders").json()] == ["analytics"]
+
+
+def test_ai_switch_defaults_on_and_blocks_sending_when_off(client):
+    assert client.get("/settings").json()["aiEnabled"] is True
+
+    conn = client.post("/connections", json={"name": "C"}).json()
+    sid = client.post("/chat/sessions", json={"connectionId": conn["id"]}).json()["id"]
+
+    assert client.put("/settings/ai-enabled", json={"aiEnabled": False}).json() == {"aiEnabled": False}
+    assert client.get("/settings").json()["aiEnabled"] is False
+    res = client.post(f"/chat/sessions/{sid}/messages", json={"content": "hi"})
+    assert res.status_code == 403
+    # Past chats stay readable while AI is off.
+    assert client.get(f"/chat/sessions/{sid}/messages").status_code == 200
+
+    client.put("/settings/ai-enabled", json={"aiEnabled": True})
+    assert client.get("/settings").json()["aiEnabled"] is True
+
+
+def test_turning_ai_off_stops_running_agents(client, monkeypatch):
+    from backend.api.routes import chat
+
+    class Running:
+        stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    run = Running()
+    monkeypatch.setitem(chat._providers, "running-session", run)
+    client.put("/settings/ai-enabled", json={"aiEnabled": True})
+    assert run.stopped is False
+    client.put("/settings/ai-enabled", json={"aiEnabled": False})
+    assert run.stopped is True

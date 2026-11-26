@@ -7,11 +7,13 @@ Register additional engines here; nothing else in the app branches on engine.
 from __future__ import annotations
 
 from backend.db.dialects.base import Dialect
+from backend.db.dialects.clickhouse import ClickHouseDialect
 from backend.db.dialects.postgres import PostgresDialect
 
 # Instances are stateless, so one shared instance per engine is enough.
 _DIALECTS: dict[str, Dialect] = {
     PostgresDialect.name: PostgresDialect(),
+    ClickHouseDialect.name: ClickHouseDialect(),
 }
 
 DEFAULT_DIALECT = PostgresDialect.name
