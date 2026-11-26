@@ -6,7 +6,9 @@ import type { ConnectionSnapshot } from "../api/client";
 import { useStore } from "../store";
 import { SidebarPanel } from "./SidebarPanel";
 import { SchemaExplorer } from "./SchemaExplorer";
-import { formatBytes, formatCount, abbrevType } from "../utils";
+import { formatBytes, formatCount, compactType, fitText } from "../utils";
+import { previewTableSql } from "../lib/sql";
+import { useActiveKind } from "../hooks/useActiveKind";
 
 // ---------------------------------------------------------------------------
 // Geometry constants
@@ -15,6 +17,9 @@ import { formatBytes, formatCount, abbrevType } from "../utils";
 const NODE_W = 210;
 const HEADER_H = 40;
 const ROW_H = 18;
+// Approximate monospace glyph widths for the column name (11px) and type (10px).
+const NAME_CHAR_W = 6.6;
+const TYPE_CHAR_W = 6.0;
 const COL_GAP = 70;
 const ROW_GAP = 34;
 const PAD = 60; // canvas padding around the laid-out graph
@@ -75,6 +80,7 @@ export function SchemaDiagramPage() {
     diagramOnlyRelated, setDiagramOnlyRelated,
     diagramShowSizes, setDiagramShowSizes,
   } = useStore();
+  const kind = useActiveKind();
 
   const graph = useQuery({
     queryKey: ["snapshot", activeConnectionId],
@@ -404,7 +410,7 @@ export function SchemaDiagramPage() {
                     onMouseEnter={() => setHovered(k)}
                     onMouseLeave={() => setHovered((h) => (h === k ? null : h))}
                     onDoubleClick={() =>
-                      openTab(n.name, `SELECT *\nFROM "${n.schema}"."${n.name}"\nLIMIT 10;`, true, `table:${n.schema}.${n.name}`)
+                      openTab(n.name, previewTableSql(kind, n.schema, n.name), true, `table:${n.schema}.${n.name}`)
                     }
                   >
                     <rect
@@ -430,39 +436,48 @@ export function SchemaDiagramPage() {
                       </text>
                     )}
                     {diagramShowColumns &&
-                      n.columns.map((c, ci) => (
-                        <g key={c.name}>
-                          {ci > 0 && (
-                            <line x1={0} x2={b.w} y1={HEADER_H + ci * ROW_H} y2={HEADER_H + ci * ROW_H} stroke="#2c2c3a" strokeWidth={0.5} />
-                          )}
-                          {c.isFk && (
-                            <g transform={`translate(12, ${HEADER_H + ci * ROW_H + 3}) scale(0.46)`}>
-                              <path d="M9 17H7A5 5 0 0 1 7 7h2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M15 7h2a5 5 0 1 1 0 10h-2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                              <line x1="11" x2="13" y1="12" y2="12" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" />
-                            </g>
-                          )}
-                          <text
-                            x={c.isFk ? 25 : 12}
-                            y={HEADER_H + ci * ROW_H + 13}
-                            fontSize={11}
-                            fill={c.isFk ? "#86c5a8" : "#8a8a98"}
-                            fontFamily="ui-monospace, monospace"
-                          >
-                            {c.name.length > 16 ? c.name.slice(0, 15) + "…" : c.name}
-                          </text>
-                          <text
-                            x={b.w - 6}
-                            y={HEADER_H + ci * ROW_H + 13}
-                            fontSize={10}
-                            fill="#4a5a72"
-                            fontFamily="ui-monospace, monospace"
-                            textAnchor="end"
-                          >
-                            {abbrevType(c.type)}
-                          </text>
-                        </g>
-                      ))}
+                      n.columns.map((c, ci) => {
+                        const nameX = c.isFk ? 25 : 12;
+                        const name = fitText(c.name, 16);
+                        // The type gets whatever the name leaves, minus a gap.
+                        const typeChars = Math.floor(
+                          (b.w - 6 - (nameX + name.length * NAME_CHAR_W) - 10) / TYPE_CHAR_W,
+                        );
+                        return (
+                          <g key={c.name}>
+                            <title>{`${c.name}: ${c.type}`}</title>
+                            {ci > 0 && (
+                              <line x1={0} x2={b.w} y1={HEADER_H + ci * ROW_H} y2={HEADER_H + ci * ROW_H} stroke="#2c2c3a" strokeWidth={0.5} />
+                            )}
+                            {c.isFk && (
+                              <g transform={`translate(12, ${HEADER_H + ci * ROW_H + 3}) scale(0.46)`}>
+                                <path d="M9 17H7A5 5 0 0 1 7 7h2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M15 7h2a5 5 0 1 1 0 10h-2" fill="none" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                <line x1="11" x2="13" y1="12" y2="12" stroke="#86c5a8" strokeWidth="2.5" strokeLinecap="round" />
+                              </g>
+                            )}
+                            <text
+                              x={nameX}
+                              y={HEADER_H + ci * ROW_H + 13}
+                              fontSize={11}
+                              fill={c.isFk ? "#86c5a8" : "#8a8a98"}
+                              fontFamily="ui-monospace, monospace"
+                            >
+                              {name}
+                            </text>
+                            <text
+                              x={b.w - 6}
+                              y={HEADER_H + ci * ROW_H + 13}
+                              fontSize={10}
+                              fill="#4a5a72"
+                              fontFamily="ui-monospace, monospace"
+                              textAnchor="end"
+                            >
+                              {fitText(compactType(c.type), Math.max(4, typeChars))}
+                            </text>
+                          </g>
+                        );
+                      })}
                   </g>
                 );
               })}

@@ -383,7 +383,7 @@ export function EditorResults() {
     const plan = result.rows.map((r) => String(r[0] ?? "")).join("\n");
     const sql = tabSql.trim();
     const prompt =
-      `Here is a PostgreSQL query plan. Please explain it in plain language, identify any bottlenecks or red flags, and suggest specific optimizations.\n\n` +
+      `Here is a query plan. Please explain it in plain language, identify any bottlenecks or red flags, and suggest specific optimizations.\n\n` +
       (sql ? `**SQL:**\n\`\`\`sql\n${sql}\n\`\`\`\n\n` : "") +
       `**EXPLAIN output:**\n\`\`\`\n${plan}\n\`\`\``;
     setChatOpen(true);
@@ -396,7 +396,7 @@ export function EditorResults() {
     const sql = tabSql.trim();
     if (!sql || !error || error === NOT_CONNECTED) return;
     const prompt =
-      `This PostgreSQL query fails to run. Explain why it doesn't work and how to fix it.\n\n` +
+      `This query fails to run. Explain why it doesn't work and how to fix it.\n\n` +
       `**SQL:**\n\`\`\`sql\n${sql}\n\`\`\`\n\n` +
       `**Error:**\n\`\`\`\n${error}\n\`\`\``;
     setChatOpen(true);
@@ -525,7 +525,7 @@ export function EditorResults() {
             <button
               className="px-2.5 py-1 rounded text-xs flex items-center gap-1.5 bg-[#3a1a1a] hover:bg-[#4a2020] text-[#e06a6a] transition-colors"
               onClick={() => activeConnectionId && api.cancelQuery(activeConnectionId)}
-              title="Stop query (pg_cancel_backend)"
+              title="Stop query"
             >
               <SquareIcon size={12} /> Stop
             </button>

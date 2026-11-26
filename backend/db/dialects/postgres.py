@@ -44,6 +44,7 @@ def _make_configure(connection_id: str, pool_kind: str):
 
 class PostgresDialect(Dialect):
     name = "postgres"
+    label = "PostgreSQL"
     default_port = 5432
 
     # -- connection lifecycle ------------------------------------------------
@@ -152,7 +153,10 @@ class PostgresDialect(Dialect):
     def detect_plugins(self, extensions: list[dict]) -> list["ExtensionPlugin"]:
         return detect_extension_plugins(e["name"] for e in extensions)
 
-    def cancel(self, profile: "ConnectionProfile", pid: int) -> bool:
+    def cancel(self, profile: "ConnectionProfile", connection_id: str) -> bool | None:
+        pid = query.get_running_pid(connection_id)
+        if pid is None:
+            return None
         # A one-off connection (not from the pool) so we can never deadlock
         # waiting for a pool slot the running query already holds.
         conninfo = self.build_conninfo(profile, get_password(profile))

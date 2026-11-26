@@ -94,7 +94,7 @@ class AnthropicProvider:
         if self._system_blocks is None:
             context = ctx.build_context(self.dialect, self.pool, plugins=self.plugins)
             self._system_blocks = [
-                {"type": "text", "text": build_system_prompt(self.custom_instructions, self.mode)},
+                {"type": "text", "text": build_system_prompt(self.custom_instructions, self.mode, self.dialect)},
                 {"type": "text", "text": context,
                  "cache_control": {"type": "ephemeral"}},
             ]

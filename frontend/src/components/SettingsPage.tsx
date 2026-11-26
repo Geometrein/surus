@@ -292,7 +292,7 @@ function AgentTimeoutField({ timeoutSec }: { timeoutSec: number }) {
   return (
     <Field
       label="Agent query timeout"
-      hint="Max time the agent's own EXPLAIN/sample queries may run before Postgres cancels them. Independent of the editor's query timeout; a cancelled query is reported back to the agent, which can retry a lighter one."
+      hint="Max time the agent's own EXPLAIN/sample queries may run before the database cancels them. Independent of the editor's query timeout; a cancelled query is reported back to the agent, which can retry a lighter one."
     >
       <select
         value={timeoutSec}

@@ -25,12 +25,12 @@ TOOL_DEFS: list[dict] = [
     {
         "name": "run_explain",
         "description": (
-            "Run EXPLAIN on a SELECT query and return the JSON plan. Call this "
-            "to evaluate whether a query is performant BEFORE returning it: look "
-            "for sequential scans on large tables, bad row estimates, and unused "
-            "indexes. Only set analyze=true if the plain EXPLAIN plan looks cheap "
-            "(low estimated rows, index scans) — ANALYZE actually executes the "
-            "query, which can be slow or resource-intensive on large tables."
+            "Run the database's EXPLAIN on a SELECT query and return the plan. "
+            "Call this to evaluate whether a query is performant BEFORE returning "
+            "it: look for full scans of large tables and keys or indexes that go "
+            "unused. Only set analyze=true if the plain plan looks cheap — it "
+            "actually executes the query, which can be slow or "
+            "resource-intensive on large tables."
         ),
         "input_schema": {
             "type": "object",
@@ -38,7 +38,7 @@ TOOL_DEFS: list[dict] = [
                 "sql": {"type": "string", "description": "A single SELECT statement."},
                 "analyze": {
                     "type": "boolean",
-                    "description": "If true, run EXPLAIN ANALYZE (executes the query).",
+                    "description": "If true, also execute the query and report what it read.",
                 },
             },
             "required": ["sql"],

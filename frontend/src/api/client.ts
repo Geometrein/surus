@@ -28,9 +28,12 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- types -----------------------------------------------------------------
 
+export type DatabaseKind = "postgres" | "clickhouse";
+
 export interface Connection {
   id: string;
   name: string;
+  kind: DatabaseKind;
   host: string;
   port: number;
   dbname: string;
@@ -45,6 +48,7 @@ export interface Connection {
 
 export interface ConnectionInput {
   name: string;
+  kind: DatabaseKind;
   host: string;
   port: number;
   dbname: string;

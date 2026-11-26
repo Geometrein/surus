@@ -27,6 +27,8 @@ uv run --with pyinstaller pyinstaller \
   --collect-all psycopg \
   --collect-all psycopg_binary \
   --collect-all keyring \
+  --collect-all clickhouse_connect \
+  --collect-all lz4 \
   --copy-metadata keyring \
   --collect-submodules uvicorn \
   --collect-submodules anthropic \

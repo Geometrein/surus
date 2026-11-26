@@ -56,6 +56,11 @@ The companion can be run as a local web app or a native MacOS app.
 - Foreign key highlighting, with hover-to-trace relationships between tables
 - Filter to related tables only, or search by name and schema
 
+**Databases**
+- PostgreSQL (with TimescaleDB and PostGIS awareness) and ClickHouse, over its HTTPS interface.
+- On ClickHouse the read-only connection sends `readonly=2`, so the server refuses writes; sort keys, partition keys and skipping indexes stand in for indexes, and the agent reads `EXPLAIN indexes = 1`.
+- Password or client certificate login for both.
+
 **Logs**
 - Full query log tagged by who ran it — you, the agent, or the app
 - Duration, row count, and errors tracked per query, color-coded by execution speed

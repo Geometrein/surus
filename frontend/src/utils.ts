@@ -129,3 +129,19 @@ export function abbrevType(t: string): string {
     .replace("double precision", "float8")
     .replace(/^character\(/, "char(");
 }
+
+// A shorter type for narrow places such as diagram cards, where ClickHouse's
+// wrapper types would not fit. The full type belongs in a tooltip next to it.
+export function compactType(t: string): string {
+  return abbrevType(t)
+    .replace(/DateTime64\((\d+), '[^']*'\)/g, "DateTime64($1)")
+    .replace(/^SimpleAggregateFunction\((\w+), (.*)\)$/, "$1($2)")
+    .replace(/Nullable\(([^()]*(?:\([^()]*\))?)\)/g, "$1?")
+    .replace(/^LowCardinality\((.*)\)$/, "LC($1)");
+}
+
+// Cut ``s`` to ``maxChars``, ending with an ellipsis when it was longer.
+export function fitText(s: string, maxChars: number): string {
+  if (s.length <= maxChars) return s;
+  return s.slice(0, Math.max(1, maxChars - 1)) + "…";
+}

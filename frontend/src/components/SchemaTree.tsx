@@ -4,6 +4,8 @@ import { Database, Table2, Eye, Layers, KeyRound, Link2, Copy, ExternalLink } fr
 import { api, type TableRef } from "../api/client";
 import { useStore } from "../store";
 import { formatCount } from "../utils";
+import { previewTableSql } from "../lib/sql";
+import { useActiveKind } from "../hooks/useActiveKind";
 
 // Relkind -> icon / colour / short badge. Each relation kind gets its own hue so
 // tables, views, and matviews are distinguishable at a glance — distinct from
@@ -50,6 +52,7 @@ function Caret({ open }: { open: boolean }) {
 
 export function SchemaTree({ search = "", hiddenSchemas = new Set<string>() }: { search?: string; hiddenSchemas?: Set<string> }) {
   const { activeConnectionId, openTab, log } = useStore();
+  const kind = useActiveKind();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [openTables, setOpenTables] = useState<Set<string>>(new Set());
 
@@ -68,7 +71,7 @@ export function SchemaTree({ search = "", hiddenSchemas = new Set<string>() }: {
 
   function preview(s: string, t: string) {
     log("info", `preview ${s}.${t}`);
-    openTab(t, `SELECT *\nFROM "${s}"."${t}"\nLIMIT 10;`, true, `table:${s}.${t}`);
+    openTab(t, previewTableSql(kind, s, t), true, `table:${s}.${t}`);
   }
 
   function toggleTable(key: string) {

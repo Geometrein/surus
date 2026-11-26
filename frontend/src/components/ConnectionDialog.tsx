@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check } from "lucide-react";
-import { api, type Connection, type ConnectionInput } from "../api/client";
+import { api, type Connection, type ConnectionInput, type DatabaseKind } from "../api/client";
 import { shortVersion } from "../utils";
 
 const field = "w-full bg-[#1b1b1f] border border-[#3a3a42] rounded px-2 py-1.5 mt-1 text-[13px] outline-none focus:border-[#4a6da8]";
@@ -16,6 +16,13 @@ type Auth = "password" | "certificate";
 // With a client certificate the connection is always encrypted, so "prefer"
 // and "disable" are not offered.
 const CERT_SSL_MODES = ["require", "verify-ca", "verify-full"];
+const PASSWORD_SSL_MODES = ["disable", "prefer", ...CERT_SSL_MODES];
+
+// Defaults that follow the engine when it is switched, unless already edited.
+const ENGINE_DEFAULTS: Record<DatabaseKind, { label: string; port: number; dbname: string; user: string }> = {
+  postgres: { label: "PostgreSQL", port: 5432, dbname: "postgres", user: "postgres" },
+  clickhouse: { label: "ClickHouse", port: 8443, dbname: "default", user: "default" },
+};
 
 export function ConnectionDialog({
   edit,
@@ -28,6 +35,7 @@ export function ConnectionDialog({
 }) {
   const [form, setForm] = useState<ConnectionInput>({
     name: edit?.name ?? "New connection",
+    kind: edit?.kind ?? "postgres",
     host: edit?.host ?? "localhost",
     port: edit?.port ?? 5432,
     dbname: edit?.dbname ?? "postgres",
@@ -47,6 +55,20 @@ export function ConnectionDialog({
 
   const set = (k: keyof ConnectionInput, v: string | number) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  function setKind(kind: DatabaseKind) {
+    setForm((f) => {
+      const from = ENGINE_DEFAULTS[f.kind];
+      const to = ENGINE_DEFAULTS[kind];
+      return {
+        ...f,
+        kind,
+        port: f.port === from.port ? to.port : f.port,
+        dbname: f.dbname === from.dbname ? to.dbname : f.dbname,
+        user: f.user === from.user ? to.user : f.user,
+      };
+    });
+  }
 
   // Only the fields of the chosen login method are sent, so switching back to
   // a password clears the certificate paths instead of keeping them silently.
@@ -103,6 +125,24 @@ export function ConnectionDialog({
             ))}
           </div>
 
+          <label className={label}>Database engine</label>
+          <div className="flex gap-1 mt-1">
+            {(Object.keys(ENGINE_DEFAULTS) as DatabaseKind[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                className={`flex-1 px-2 py-1 rounded text-[13px] border ${
+                  form.kind === k
+                    ? "border-[#4a6da8] bg-[#24304a] text-white"
+                    : "border-[#3a3a42] text-[#a0a0a8] hover:bg-[#1d1d22]"
+                }`}
+              >
+                {ENGINE_DEFAULTS[k].label}
+              </button>
+            ))}
+          </div>
+
           <label className={label}>Host</label>
           <input className={field} value={form.host} onChange={(e) => set("host", e.target.value)} />
           <label className={label}>Port</label>
@@ -144,6 +184,18 @@ export function ConnectionDialog({
                 value={form.password}
                 onChange={(e) => set("password", e.target.value)}
               />
+              <label className={label}>SSL mode</label>
+              <select
+                className={field}
+                value={form.sslmode}
+                onChange={(e) => set("sslmode", e.target.value)}
+              >
+                {PASSWORD_SSL_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
             </>
           ) : (
             <>

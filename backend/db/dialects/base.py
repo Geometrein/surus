@@ -35,6 +35,10 @@ class Dialect(ABC):
     name: str
     #: Default TCP port offered in the UI / used when none is given.
     default_port: int
+    #: Engine name as people write it, used in the agent's prompts.
+    label: str
+    #: Engine-specific guidance appended to the agent's system prompt.
+    agent_notes: str = ""
 
     # -- connection lifecycle ------------------------------------------------
 
@@ -71,8 +75,12 @@ class Dialect(ABC):
         """Select plugins for the extensions returned by :meth:`list_extensions`."""
 
     @abstractmethod
-    def cancel(self, profile: "ConnectionProfile", pid: int) -> bool:
-        """Cancel the backend identified by ``pid`` via a one-off connection."""
+    def cancel(self, profile: "ConnectionProfile", connection_id: str) -> bool | None:
+        """Cancel the user query running on ``connection_id``.
+
+        Returns ``None`` when nothing is running. Uses a one-off connection, so
+        it never waits for a pool slot the running query holds.
+        """
 
     # -- introspection -------------------------------------------------------
 

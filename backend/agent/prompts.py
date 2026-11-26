@@ -9,10 +9,15 @@ message).
 
 from __future__ import annotations
 
-SQL_PROMPT = """You are a senior PostgreSQL engineer embedded in a SQL IDE.
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.db.dialects.base import Dialect
+
+SQL_PROMPT = """You are a senior {engine} engineer embedded in a SQL IDE.
 
 Your job: turn the user's natural-language request into a single, correct, and
-*performant* SQL query for the connected Postgres database.
+*performant* SQL query for the connected {engine} database.
 
 Method:
 1. Use the provided schema context. Call inspect_schema if you need detail on a
@@ -36,10 +41,10 @@ Rules:
 - If the request is conversational or you can't produce a query (e.g. it needs a
   write, or is ambiguous), reply in plain text and don't call submit_query."""
 
-QUESTION_PROMPT = """You are a senior PostgreSQL expert embedded in a SQL IDE.
+QUESTION_PROMPT = """You are a senior {engine} expert embedded in a SQL IDE.
 
 Your job: answer the user's questions about their database — its schema, data,
-relationships, performance characteristics, and PostgreSQL concepts — in plain
+relationships, performance characteristics, and {engine} concepts — in plain
 English.
 
 Method:
@@ -57,7 +62,7 @@ Rules:
 - If a question requires a write operation, explain what the SQL would look like
   but note it cannot be executed here."""
 
-TEACH_PROMPT = """You are a patient SQL teacher with deep PostgreSQL expertise,
+TEACH_PROMPT = """You are a patient SQL teacher with deep {engine} expertise,
 embedded in a SQL IDE.
 
 Your job: help the user learn SQL by building a query that answers their request
@@ -74,8 +79,7 @@ The rationale you pass to submit_query MUST:
 - Walk through each major clause (SELECT, FROM, JOIN, WHERE, GROUP BY, etc.)
   and explain what it does in plain English.
 - Explain WHY each clause is written the way it is, not just what it does.
-- Call out any PostgreSQL-specific features (window functions, CTEs, lateral
-  joins, etc.) and what they mean.
+- Call out any {engine}-specific features and what they mean.
 - Suggest one concrete variation the user could try to deepen their
   understanding.
 
@@ -92,8 +96,8 @@ MODE_PROMPTS: dict[str, str] = {
     "teach": TEACH_PROMPT,
 }
 
-# The base prompt surfaced (read-only) in Settings.
-FIXED_SYSTEM_PROMPT = SQL_PROMPT
+# The base prompt surfaced (read-only) in Settings, as it reads for Postgres.
+FIXED_SYSTEM_PROMPT = SQL_PROMPT.replace("{engine}", "PostgreSQL")
 
 
 # Appended to every mode: the agent can draw charts regardless of what its
@@ -107,8 +111,19 @@ column-to-axis mapping and the UI draws the chart inline. Use it in addition to
 rows — reach for it when the shape of the data is the point."""
 
 
-def build_system_prompt(custom_instructions: str = "", mode: str = "sql") -> str:
-    base = f"{MODE_PROMPTS.get(mode, SQL_PROMPT)}\n\n{VISUALS_NOTE}"
+def build_system_prompt(
+    custom_instructions: str = "", mode: str = "sql", dialect: "Dialect | None" = None
+) -> str:
+    """Assemble the system prompt for ``mode``, worded for the connected engine.
+
+    ``dialect`` names the engine and may add engine-specific guidance; without
+    one the prompt reads as it does for Postgres.
+    """
+    engine = dialect.label if dialect else "PostgreSQL"
+    base = MODE_PROMPTS.get(mode, SQL_PROMPT).replace("{engine}", engine)
+    if dialect and dialect.agent_notes:
+        base = f"{base}\n\n{dialect.agent_notes}"
+    base = f"{base}\n\n{VISUALS_NOTE}"
     extra = custom_instructions.strip()
     if not extra:
         return base

@@ -107,7 +107,7 @@ class OpenAIProvider:
     def _system(self) -> str:
         if self._system_text is None:
             context = ctx.build_context(self.dialect, self.pool, plugins=self.plugins)
-            prompt = build_system_prompt(self.custom_instructions, self.mode)
+            prompt = build_system_prompt(self.custom_instructions, self.mode, self.dialect)
             self._system_text = f"{prompt}\n\n# Database context\n\n{context}"
         return self._system_text
 
